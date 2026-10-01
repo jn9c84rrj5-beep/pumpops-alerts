@@ -50,6 +50,9 @@
   .act.quiet { background: transparent; color: var(--body); }
   .act.no { color: var(--danger); background: transparent; }
   .act:disabled { opacity: .45; }
+  .issue { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .issue-text { color: var(--strong); }
+  .issue .acts { margin-top: 8px; }
   .answer { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); white-space: pre-wrap; color: var(--primary-ink); font-size: 14px; }
   .fab { position: fixed; right: calc(16px + env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: var(--z-sticky); font: inherit; font-weight: 600; font-size: 15px; min-height: 52px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--primary); color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
   dialog { z-index: var(--z-sheet); border: 1px solid var(--border); border-radius: 16px 16px 0 0; background: var(--surface); color: var(--strong); width: 100%; max-width: 640px; margin: auto auto 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 88dvh; overflow-y: auto; }
@@ -163,10 +166,12 @@ function render() {
   if (!list.length) { main.innerHTML = '<p class="empty">Nothing yet today.</p>'; return }
   main.innerHTML = list.map(r => {
     const [first, ...rest] = String(r.body).split('\n')
-    const acts = (r.actions || []).map((a, i) => `<button class="act ${/^✓/.test(a.label) ? 'yes' : a.action === 'not_business' ? 'no' : ''}" data-id="${r.id}" data-i="${i}" ${answers[r.id] ? 'disabled' : ''}>${esc(a.label)}</button>`).join('')
+    const groups = (r.actions || []).filter(a => a.buttons), plain = (r.actions || []).map((a, i) => [a, i]).filter(([a]) => !a.buttons)
+    const acts = plain.map(([a, i]) => `<button class="act ${/^✓/.test(a.label) ? 'yes' : a.action === 'not_business' ? 'no' : ''}" data-id="${r.id}" data-i="${i}" ${answers[r.id] ? 'disabled' : ''}>${esc(a.label)}</button>`).join('')
+    const issues = groups.map((g, gi) => { const k = r.id + ':' + gi; return `<div class="issue"><div class="issue-text">${esc(g.issue)}</div><div class="acts">${g.buttons.map((b, bi) => `<button class="act ${b.answer === 'asked' ? 'yes' : ''}" data-id="${r.id}" data-g="${gi}" data-b="${bi}" ${answers[k] && b.answer !== 'asked' ? 'disabled' : ''}>${esc(b.label)}</button>`).join('')}</div>${answers[k] ? `<div class="answer">${esc(answers[k])}</div>` : ''}</div>` }).join('')
     return `<article class="msg ${esc(r.purpose)}" id="m${r.id}">
       <div class="meta"><span class="kind ${esc(r.purpose)}">${LABEL[r.purpose] || esc(r.purpose)}</span><span>${when(r.created_at)}</span></div>
-      <div class="text"><b>${esc(first)}</b>${rest.length ? '\n' + esc(rest.join('\n')) : ''}</div>
+      <div class="text"><b>${esc(first)}</b>${rest.length && !groups.length ? '\n' + esc(rest.join('\n')) : ''}</div>${issues}
       ${r.purpose === 'receipt' ? '' : `<div class="acts">${acts}<button class="act quiet" data-share="${r.id}">Forward</button></div>`}
       ${answers[r.id] ? `<div class="answer">${esc(answers[r.id])}</div>` : ''}
     </article>`
@@ -178,7 +183,15 @@ main.addEventListener('click', async e => {
   const b = e.target.closest('button'); if (!b) return
   if (b.dataset.share) { const r = rows.find(x => String(x.id) === b.dataset.share); if (r) { if (navigator.share) navigator.share({ text: r.body }).catch(() => {}); else { await navigator.clipboard.writeText(r.body); toast('Copied') } } return }
   if (!b.dataset.id) return
-  const r = rows.find(x => String(x.id) === b.dataset.id), a = r?.actions?.[Number(b.dataset.i)]; if (!a) return
+  const r = rows.find(x => String(x.id) === b.dataset.id)
+  if (b.dataset.g !== undefined) {   // a button under one issue of an alert
+    const g = (r?.actions || []).filter(a => a.buttons)[Number(b.dataset.g)], a = g?.buttons[Number(b.dataset.b)]; if (!a) return
+    if (a.share) { if (navigator.share) { try { await navigator.share({ text: a.share }) } catch { return } } else { await navigator.clipboard.writeText(a.share); toast('Copied — paste it in his group') } }
+    const { status, data } = await api('reply', { body: { action: 'issue', machine: a.machine, day: a.day, fp: a.fp, answer: a.answer } }).catch(() => ({ status: 0, data: {} }))
+    if (status !== 200) { toast(data.error || 'No connection — try again.'); return }
+    answers[r.id + ':' + b.dataset.g] = data.reply; toast(data.reply); render(); return
+  }
+  const a = r?.actions?.[Number(b.dataset.i)]; if (!a) return
   if (a.compose) return openSheet(a.compose)
   b.disabled = true
   await say(a.action ? { action: a.action, receipt: a.receipt } : { text: a.text, receipt: a.receipt }, r.id)
