@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>PumpOps</title>
+<meta name="theme-color" content="#030712">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="PumpOps">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+  :root {
+    --page: #030712; --surface: #111827; --raised: #1f2937; --border: #1f2937; --ink: #ffffff; --body: #9ca3af; --strong: #d1d5db;
+    --primary: #16a34a; --primary-ink: #4ade80; --primary-deep: #14532d; --danger: #f87171; --danger-deep: #7f1d1d;
+    --warning: #fbbf24; --warning-deep: #78350f; --info: #60a5fa; --info-deep: #1e3a8a;
+    --z-sticky: 10; --z-sheet: 30; --z-toast: 40;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; background: var(--page); color: var(--strong); font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  body { min-height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 88px) env(safe-area-inset-left); }
+  header { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--page); padding: 14px 16px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  h1 { margin: 0; font-size: 18px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+  .tabs { display: flex; gap: 6px; }
+  .tab { font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--body); min-height: 36px; }
+  .tab[aria-pressed="true"] { background: var(--raised); color: var(--ink); }
+  main { padding: 12px 16px; display: grid; gap: 10px; max-width: 640px; margin: 0 auto; }
+  .gate { margin: 18vh auto 0; max-width: 420px; padding: 0 20px; text-align: left; }
+  .gate h2 { color: var(--ink); font-size: 22px; font-weight: 600; margin: 0 0 10px; text-wrap: balance; }
+  .gate p, .gate li { color: var(--body); }
+  .gate ol { padding-left: 20px; display: grid; gap: 6px; }
+  .big { font: inherit; font-weight: 600; font-size: 16px; width: 100%; min-height: 52px; border-radius: 12px; border: 0; background: var(--primary); color: #fff; margin-top: 18px; }
+  .big:disabled { opacity: .5; }
+  .msg { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; scroll-margin-top: 70px; }
+  .msg.flash { border-color: var(--primary); }
+  .meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--body); margin-bottom: 6px; }
+  .kind { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--raised); color: var(--strong); }
+  .kind.mpesa { background: var(--primary-deep); color: var(--primary-ink); }
+  .kind.alert { background: var(--warning-deep); color: var(--warning); }
+  .kind.summary { background: var(--info-deep); color: var(--info); }
+  .text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--strong); }
+  .text b { color: var(--ink); font-weight: 600; }
+  .msg.receipt { padding: 8px 14px; }
+  .msg.receipt .text { color: var(--body); font-size: 14px; }
+  .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .act { font: inherit; font-size: 14px; min-height: 40px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--raised); color: var(--ink); }
+  .act.yes { background: var(--primary); border-color: var(--primary); font-weight: 600; }
+  .act.quiet { background: transparent; color: var(--body); }
+  .act.no { color: var(--danger); background: transparent; }
+  .act:disabled { opacity: .45; }
+  .answer { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); white-space: pre-wrap; color: var(--primary-ink); font-size: 14px; }
+  .fab { position: fixed; right: calc(16px + env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: var(--z-sticky); font: inherit; font-weight: 600; font-size: 15px; min-height: 52px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--primary); color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
+  dialog { z-index: var(--z-sheet); border: 1px solid var(--border); border-radius: 16px 16px 0 0; background: var(--surface); color: var(--strong); width: 100%; max-width: 640px; margin: auto auto 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 88dvh; overflow-y: auto; }
+  dialog::backdrop { background: rgba(3,7,18,.7); }
+  dialog h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; color: var(--ink); }
+  .hint { font-size: 13px; color: var(--body); margin: 0 0 12px; }
+  .label { font-size: 12px; font-weight: 500; color: var(--body); margin: 14px 0 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font: inherit; font-size: 14px; min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--strong); }
+  .chip[aria-pressed="true"] { background: var(--primary-deep); border-color: var(--primary); color: var(--primary-ink); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  input { font: inherit; font-size: 16px; width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--page); color: var(--ink); }
+  input::placeholder { color: #6b7280; }
+  input:focus-visible, button:focus-visible { outline: 2px solid var(--primary-ink); outline-offset: 2px; }
+  .preview { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: var(--page); border: 1px dashed var(--border); color: var(--ink); min-height: 44px; font-size: 15px; }
+  .sheet-actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-top: 14px; }
+  .toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: var(--z-toast); background: var(--raised); color: var(--ink); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 14px; max-width: min(92vw, 520px); white-space: pre-wrap; opacity: 0; pointer-events: none; transition: opacity .2s ease-out; }
+  .toast.on { opacity: 1; }
+  .empty { color: var(--body); text-align: center; padding: 40px 0; }
+  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+</style>
+</head>
+<body>
+<header id="bar" hidden>
+  <h1>PumpOps</h1>
+  <div class="tabs" role="group" aria-label="What to show">
+    <button class="tab" id="tab-main" aria-pressed="true">Payments &amp; alerts</button>
+    <button class="tab" id="tab-all" aria-pressed="false">Everything</button>
+  </div>
+</header>
+<main id="main"></main>
+<button class="fab" id="fab" hidden>+ Say a cost</button>
+
+<dialog id="sheet" aria-labelledby="sheet-title">
+  <h2 id="sheet-title">Say a cost</h2>
+  <p class="hint" id="sheet-hint">Pick the machine and the kind; the bot reads it as if you had dictated it.</p>
+  <div class="label">Machine</div><div class="chips" id="machines"></div>
+  <div class="label">Kind</div><div class="chips" id="kinds"></div>
+  <div class="row">
+    <div><div class="label">Amount (KES)</div><input id="amount" inputmode="numeric" autocomplete="off" placeholder="7,623"></div>
+    <div><div class="label">Who (optional)</div><input id="who" autocomplete="off" placeholder="Brian"></div>
+  </div>
+  <div class="label">Or type it yourself</div><input id="free" autocomplete="off" placeholder="Supper 200 each for Brian and Isaiah on A5">
+  <div class="preview" id="preview" aria-live="polite"></div>
+  <div class="sheet-actions"><button class="act quiet" id="cancel">Cancel</button><button class="act yes" id="send">Send</button></div>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+const FN = 'https://fepsvkuutodaihotucuh.supabase.co/functions/v1/whatsapp-webhook'
+const VAPID = 'BP2UhZjRq3DyhhjuaqQ9QW9Di2G2Gs7xT-MkG0IYWqWBy0HSXNQ4L3y0P7h2a3aCOub68ILfEFmAQ873QPGNY2k'
+const KINDS = [['Fuel', 'fuel', 1], ['Fuel run', 'fuel run', 1], ['Engine oil', 'engine oil', 1], ['Hydraulic oil', 'hydraulic oil', 1], ['Early start', 'early start', 1], ['Between sites', 'between sites', 1],
+  ['Late finish', 'late finish', 1], ['Breakfast', 'breakfast', 1], ['Supper', 'supper', 1], ['New equipment', 'bought new equipment', 1], ['Advance', 'advance', 0], ['Pay', 'salary', 0]]
+const $ = id => document.getElementById(id)
+const main = $('main'), store = { get token() { try { return localStorage.getItem('pumpops.token') } catch { return null } }, set token(v) { try { v ? localStorage.setItem('pumpops.token', v) : localStorage.removeItem('pumpops.token') } catch {} } }
+const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches
+let showAll = false, rows = [], machines = ['A', 'A2', 'A3', 'A4', 'A5', 'S', 'TRK'], answers = {}, compose = { machine: null, kind: null, receipt: null }, timer = null
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 5000) }
+const key = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)) }
+const api = async (task, opts = {}) => {
+  const r = await fetch(`${FN}?task=${task}`, { method: opts.body ? 'POST' : 'GET', headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(store.token ? { 'x-device-token': store.token } : {}) }, body: opts.body ? JSON.stringify(opts.body) : undefined })
+  return { status: r.status, data: await r.json().catch(() => ({})) }
+}
+
+function gate(html) { $('bar').hidden = true; $('fab').hidden = true; main.innerHTML = `<section class="gate">${html}</section>` }
+async function start() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    if (!standalone) return gate('<h2>Add PumpOps to your home screen</h2><ol><li>Tap the Share button in Safari.</li><li>Choose <b>Add to Home Screen</b>.</li><li>Open <b>PumpOps</b> from the home screen.</li></ol><p>Notifications only work from the home-screen app.</p>')
+    return gate('<h2>This phone can\'t receive notifications here</h2><p>It needs iOS 16.4 or later.</p>')
+  }
+  const reg = await navigator.serviceWorker.register('sw.js')
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data?.open) { load().then(() => focusMsg(e.data.open)) } })
+  if (store.token) return feed()
+  const sub = await reg.pushManager.getSubscription()
+  if (sub && Notification.permission === 'granted') return waitApproval(sub)
+  gate('<h2>Turn on notifications</h2><p>The bot will tell you about every payment, alert and summary, with a sound, and you can answer from here.</p><button class="big" id="enable">Turn on notifications</button>')
+  $('enable').onclick = async e => {
+    e.target.disabled = true
+    try {
+      if (await Notification.requestPermission() !== 'granted') { toast('Notifications were not allowed. Allow them in Settings → Notifications → PumpOps.'); e.target.disabled = false; return }
+      waitApproval(await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key(VAPID) }))
+    } catch (err) { toast('Could not subscribe: ' + err.message); e.target.disabled = false }
+  }
+}
+async function waitApproval(sub) {
+  gate('<h2>Waiting for approval</h2><p>This phone has asked to receive the bot\'s messages. Tell Code you\'ve turned it on; it approves this one device, and this screen moves on by itself.</p>')
+  const ask = async () => {
+    const { data } = await api('subscribe', { body: { subscription: sub.toJSON(), label: (navigator.userAgent.match(/iPhone|iPad|Macintosh|Android/) || ['device'])[0] } })
+    if (data.status === 'approved' && data.token) { store.token = data.token; clearInterval(timer); feed() }
+    else if (data.status === 'revoked' || data.status === 'gone') { clearInterval(timer); gate('<h2>This device was removed</h2><p>Ask Code to approve it again.</p>') }
+  }
+  await ask(); clearInterval(timer); timer = setInterval(ask, 5000)
+}
+
+async function load() {
+  const { status, data } = await api('feed')
+  if (status === 403) { store.token = null; return start() }
+  if (data.rows) { rows = data.rows; machines = data.machines || machines; render() }
+}
+function feed() {
+  $('bar').hidden = false; $('fab').hidden = false
+  load().then(() => { const m = new URLSearchParams(location.search).get('m'); if (m) focusMsg(m) })
+  clearInterval(timer); timer = setInterval(() => { if (!document.hidden && !$('sheet').open) load() }, 30000)
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) load() })
+}
+const when = iso => { const d = new Date(iso), t = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + t }
+const LABEL = { mpesa: 'Payment', alert: 'Alert', summary: 'Summary', reply: 'Bot', receipt: 'Received' }
+function render() {
+  const list = rows.filter(r => showAll || r.purpose !== 'receipt')
+  if (!list.length) { main.innerHTML = '<p class="empty">Nothing yet today.</p>'; return }
+  main.innerHTML = list.map(r => {
+    const [first, ...rest] = String(r.body).split('\n')
+    const acts = (r.actions || []).map((a, i) => `<button class="act ${/^✓/.test(a.label) ? 'yes' : a.action === 'not_business' ? 'no' : ''}" data-id="${r.id}" data-i="${i}" ${answers[r.id] ? 'disabled' : ''}>${esc(a.label)}</button>`).join('')
+    return `<article class="msg ${esc(r.purpose)}" id="m${r.id}">
+      <div class="meta"><span class="kind ${esc(r.purpose)}">${LABEL[r.purpose] || esc(r.purpose)}</span><span>${when(r.created_at)}</span></div>
+      <div class="text"><b>${esc(first)}</b>${rest.length ? '\n' + esc(rest.join('\n')) : ''}</div>
+      ${r.purpose === 'receipt' ? '' : `<div class="acts">${acts}<button class="act quiet" data-share="${r.id}">Forward</button></div>`}
+      ${answers[r.id] ? `<div class="answer">${esc(answers[r.id])}</div>` : ''}
+    </article>`
+  }).join('')
+}
+function focusMsg(id) { const el = $('m' + id); if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 2500) } }
+
+main.addEventListener('click', async e => {
+  const b = e.target.closest('button'); if (!b) return
+  if (b.dataset.share) { const r = rows.find(x => String(x.id) === b.dataset.share); if (r) { if (navigator.share) navigator.share({ text: r.body }).catch(() => {}); else { await navigator.clipboard.writeText(r.body); toast('Copied') } } return }
+  if (!b.dataset.id) return
+  const r = rows.find(x => String(x.id) === b.dataset.id), a = r?.actions?.[Number(b.dataset.i)]; if (!a) return
+  if (a.compose) return openSheet(a.compose)
+  b.disabled = true
+  await say(a.action ? { action: a.action, receipt: a.receipt } : { text: a.text, receipt: a.receipt }, r.id)
+})
+async function say(body, forId) {
+  try {
+    const { status, data } = await api('reply', { body })
+    if (status !== 200) { toast(data.error || 'The bot did not take it — try again.'); render(); return false }
+    if (forId) answers[forId] = data.reply; toast(data.reply); await load(); return true
+  } catch { toast('No connection — try again.'); render(); return false }
+}
+
+// ── the composer: machine + kind + amount (+ who), or free text ──
+function chips(el, items, get, set) { el.innerHTML = items.map(x => `<button class="chip" aria-pressed="${get() === x}" data-v="${esc(x)}">${esc(x)}</button>`).join(''); el.onclick = e => { const c = e.target.closest('.chip'); if (!c) return; set(get() === c.dataset.v ? null : c.dataset.v); chips(el, items, get, set); preview() } }
+function composed() {
+  const free = $('free').value.trim(); if (free) return free
+  const k = KINDS.find(x => x[0] === compose.kind); const amt = $('amount').value.replace(/[^\d.]/g, ''); const who = $('who').value.trim()
+  if (!k || !amt) return ''
+  return [k[2] ? compose.machine : null, k[1], Number(amt).toLocaleString('en-US'), who ? `for ${who}` : null].filter(Boolean).join(' ')
+}
+function preview() { const t = composed(); $('preview').textContent = t || 'Pick a kind and an amount.'; $('send').disabled = !t }
+function openSheet(pre = {}) {
+  compose = { machine: pre.machine || null, kind: null, receipt: pre.receipt || null }
+  $('amount').value = pre.amount ? Number(pre.amount).toLocaleString('en-US') : ''; $('who').value = ''; $('free').value = ''
+  $('sheet-title').textContent = pre.receipt ? 'What was this payment for?' : 'Say a cost'
+  $('sheet-hint').textContent = pre.receipt ? `M-Pesa ${pre.receipt} · KES ${Number(pre.amount).toLocaleString('en-US')} — your answer is attached to this receipt.` : 'Pick the machine and the kind; the bot reads it as if you had dictated it.'
+  chips($('machines'), machines, () => compose.machine, v => compose.machine = v)
+  chips($('kinds'), KINDS.map(k => k[0]), () => compose.kind, v => compose.kind = v)
+  preview(); $('sheet').showModal()
+}
+$('fab').onclick = () => openSheet()
+$('cancel').onclick = () => $('sheet').close()
+for (const id of ['amount', 'who', 'free']) $(id).oninput = preview
+$('send').onclick = async () => { const text = composed(); if (!text) return; $('send').disabled = true; if (await say({ text, receipt: compose.receipt })) $('sheet').close(); $('send').disabled = false }
+$('tab-main').onclick = () => { showAll = false; $('tab-main').setAttribute('aria-pressed', 'true'); $('tab-all').setAttribute('aria-pressed', 'false'); render() }
+$('tab-all').onclick = () => { showAll = true; $('tab-all').setAttribute('aria-pressed', 'true'); $('tab-main').setAttribute('aria-pressed', 'false'); render() }
+start()
+</script>
+</body>
+</html>
