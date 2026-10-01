@@ -193,12 +193,15 @@
   <h2 id="sheet-title">Say a cost</h2>
   <p class="hint" id="sheet-hint"></p>
   <div id="cost-fields">
+    <div class="label">Day</div><div class="picks" id="days"></div>
+    <div class="picks" id="shifts" style="margin-top:6px"></div>
     <div class="label">Machine</div><div class="picks" id="machines"></div>
     <div class="label">Kind</div><div class="picks" id="kinds"></div>
     <div class="two">
       <div><div class="label">Amount (KES)</div><input id="amount" inputmode="numeric" autocomplete="off" placeholder="7,623"></div>
       <div><div class="label">Who (optional)</div><input id="who" autocomplete="off" placeholder="Brian"></div>
     </div>
+    <div class="picks" id="crew" style="margin-top:8px"></div>
     <div class="label">Or type it yourself</div><input id="free" autocomplete="off" placeholder="Supper 200 each for Brian and Isaiah on A5">
     <div class="preview" id="preview" aria-live="polite"></div>
   </div>
@@ -230,7 +233,11 @@ const standalone = window.navigator.standalone === true || matchMedia('(display-
 let feed = { rows: [], answers: [], board: { machines: [], fuel: [], money: {} }, briefs: null, questions: [], machines: ['A', 'A2', 'A3', 'A4', 'A5', 'S', 'TRK'] }
 let things = [], dept = 'all', timer = null, busy = false
 const filters = { all: 'all' }, opened = new Set()
-let compose = { mode: 'cost', machine: null, kind: null, receipt: null, id: null, item: 0 }
+let compose = { mode: 'cost', machine: null, kind: null, receipt: null, id: null, item: 0, day: null, shift: 'day', who: null }
+const crews = {}   // machine|day → the men on its registers, fetched once
+// the last five days, today first (the owner, 2 Oct 2026: "above machines there should be dates, showing the last 5 calendar dates, two
+// options per date: one for the day shift and one for the night")
+const lastDays = () => { const out = []; for (let i = 0; i < 5; i++) { const d = new Date(Date.now() - i * 86400e3); const iso = d.toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' }); out.push({ iso, label: i === 0 ? 'Today' : i === 1 ? 'Yesterday' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Africa/Nairobi' }) }) } return out }
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 const kes = n => Number(n || 0).toLocaleString('en-US')
 const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 5000) }
@@ -446,7 +453,7 @@ document.addEventListener('click', async e => {
       return say({ action: 'issue', machine: a.machine, day: a.day, fp: a.fp, answer: a.answer, issue: t.what, ...at })
     }
     const a = t.plain[Number(b.dataset.i)]; if (!a) return
-    if (a.compose) return openSheet({ ...a.compose, ...at })
+    if (a.compose) return openSheet({ ...a.compose, ...at, who: (t.r.data && t.r.data.payee) || null, day: a.day || (t.r.data && t.r.data.day) || null })
     b.disabled = true
     return say(a.action ? { ...a, ...at } : { text: a.text, receipt: a.receipt, ...at })
   }
@@ -454,26 +461,42 @@ document.addEventListener('click', async e => {
 })
 
 // ── the sheet: say a cost (machine + kind + amount, or free text) · what a payment was · paste an M-Pesa text · ask the manager ──
-function picks(el, items, get, set) { el.innerHTML = items.map(x => `<button class="pick" aria-pressed="${get() === x}" data-v="${esc(x)}">${esc(x)}</button>`).join(''); el.onclick = e => { const c = e.target.closest('.pick'); if (!c) return; set(get() === c.dataset.v ? null : c.dataset.v); picks(el, items, get, set); preview() } }
+function picks(el, items, get, set, keep = false) { el.innerHTML = items.map(x => `<button class="pick" aria-pressed="${get() === x}" data-v="${esc(x)}">${esc(x)}</button>`).join(''); el.onclick = e => { const c = e.target.closest('.pick'); if (!c) return; if (keep && get() === c.dataset.v) return; set(get() === c.dataset.v ? null : c.dataset.v); picks(el, items, get, set, keep); preview() } }
 function composed() {
   if (compose.mode !== 'cost') return $('long').value.trim()
   const free = $('free').value.trim(); if (free) return free
-  const k = KINDS.find(x => x[0] === compose.kind); const amt = $('amount').value.replace(/[^\d.]/g, ''); const who = $('who').value.trim()
+  const k = KINDS.find(x => x[0] === compose.kind); const amt = $('amount').value.replace(/[^\d.]/g, ''); const who = $('who').value.trim() || compose.who
   if (!k || !amt) return ''
   return [k[2] ? compose.machine : null, k[1], Number(amt).toLocaleString('en-US'), who ? `for ${who}` : null].filter(Boolean).join(' ')
 }
-function preview() { const t = composed(); $('preview').textContent = t || 'Pick a kind and an amount.'; $('send').disabled = !t && compose.mode !== 'business' }
+const dayWords = () => { const d = lastDays().find(x => x.iso === compose.day); return d && d.label !== 'Today' ? ` · ${d.label}${compose.shift === 'night' ? ' (night)' : ''}` : compose.shift === 'night' ? ' · tonight' : '' }
+function preview() { const t = composed(); $('preview').textContent = t ? t + dayWords() : 'Pick a kind and an amount.'; $('send').disabled = !t && compose.mode !== 'business' }
+// the men on the chosen machine's registers of the chosen day — the payment's payee first when he is one of them
+async function crew() {
+  const el = $('crew'); if (!compose.machine || !compose.day) { el.innerHTML = ''; return }
+  const k = compose.machine + '|' + compose.day
+  if (!crews[k]) { el.innerHTML = '<span class="chip">looking at the registers…</span>'; const { data } = await api(`crew&machine=${encodeURIComponent(compose.machine)}&day=${compose.day}`).catch(() => ({ data: null })); crews[k] = (data && data.names) || [] }
+  const names = crews[k]
+  if (compose.who && !names.some(n => n.name === compose.who)) compose.who = null
+  el.innerHTML = names.length ? names.map(n => `<button class="pick" aria-pressed="${compose.who === n.name}" data-v="${esc(n.name)}">${esc(n.name)}</button>`).join('') : `<span class="chip">no register for ${esc(compose.machine)} that day</span>`
+  el.onclick = e => { const c = e.target.closest('.pick'); if (!c) return; compose.who = compose.who === c.dataset.v ? null : c.dataset.v; $('who').value = ''; crew(); preview() }
+  preview()
+}
 function openSheet(pre = {}) {
   const mode = pre.ask ? 'ask' : pre.paste ? 'paste' : pre.bucket === 'business' ? 'business' : 'cost'
-  compose = { mode, machine: pre.machine || null, kind: null, receipt: pre.receipt || null, id: pre.id || null, item: pre.item || 0 }
+  compose = { mode, machine: pre.machine || null, kind: null, receipt: pre.receipt || null, id: pre.id || null, item: pre.item || 0, day: pre.day || lastDays()[0].iso, shift: pre.shift === 'night' ? 'night' : 'day', who: pre.who || null }
   $('amount').value = pre.amount ? Number(pre.amount).toLocaleString('en-US') : ''; $('who').value = ''; $('free').value = ''; $('long').value = ''
   $('cost-fields').hidden = mode !== 'cost'; $('text-fields').hidden = mode === 'cost'; $('qa').hidden = mode !== 'ask'
   const amt = pre.amount ? `KES ${Number(pre.amount).toLocaleString('en-US')}` : ''
   if (mode === 'cost') {
     $('sheet-title').textContent = pre.receipt ? 'What was this payment for?' : 'Say a cost'
     $('sheet-hint').textContent = pre.receipt ? `M-Pesa ${pre.receipt} · ${amt} — your answer is attached to this receipt.` : 'Pick the machine and the kind; the bot reads it as if you had dictated it.'
-    picks($('machines'), feed.machines || [], () => compose.machine, v => compose.machine = v)
+    const days = lastDays()
+    picks($('days'), days.map(d => d.label), () => (days.find(d => d.iso === compose.day) || {}).label, v => { compose.day = (days.find(d => d.label === v) || days[0]).iso; crew() }, true)
+    picks($('shifts'), ['Day shift', 'Night shift'], () => compose.shift === 'night' ? 'Night shift' : 'Day shift', v => { compose.shift = v === 'Night shift' ? 'night' : 'day' }, true)
+    picks($('machines'), feed.machines || [], () => compose.machine, v => { compose.machine = v; crew() })
     picks($('kinds'), KINDS.map(k => k[0]), () => compose.kind, v => compose.kind = v)
+    crew()
   } else if (mode === 'business') {
     $('sheet-title').textContent = 'Other business — what was it?'
     $('sheet-hint').textContent = `M-Pesa ${pre.receipt} · ${amt} — filed under Other (Business), off the machines' books. A word on what it was helps later (rent, licence…).`
@@ -503,7 +526,7 @@ $('send').onclick = async () => {
   $('send').disabled = true
   const ok = compose.mode === 'business' ? await say({ action: 'business', receipt: compose.receipt, note: text, ...at })
     : compose.mode === 'ask' ? await say({ action: 'ask', department: dept, question: text })
-    : await say({ text, receipt: compose.receipt, ...at })
+    : await say({ text, receipt: compose.receipt, day: compose.day, shift: compose.shift, ...at })
   if (ok) { if (compose.mode === 'ask') { $('long').value = ''; thread() } else $('sheet').close() }
   $('send').disabled = false
 }
