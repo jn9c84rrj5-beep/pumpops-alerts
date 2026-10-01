@@ -69,7 +69,13 @@
   .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 12px; padding: 4px; border-radius: 14px; background: var(--track); }
   .seg button { border: 0; background: transparent; min-height: 36px; border-radius: 10px; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 0 6px; color: var(--body); transition: background .18s ease-out, color .18s ease-out; }
   .seg button[aria-pressed="true"] { background: var(--glass-strong); color: var(--ink); box-shadow: inset 0 1px 0 var(--edge-top), 0 1px 6px rgba(0,0,0,.18); }
-  .seg .n { font-variant-numeric: tabular-nums; opacity: .8; margin-left: 4px; }
+  /* the counts as bubbles (the owner, 2 Oct 2026: "make the bubble for needs you amber and the one for solved green") */
+  .seg .n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 6px; border-radius: 999px; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; vertical-align: 1px; }
+  .seg .n:empty { display: none; }
+  #n-p { background: var(--badge); color: var(--badge-on); }
+  #n-s { background: var(--primary); color: var(--primary-on); }
+  .chip.need { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 45%, transparent); }
+  .chip.done { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent); }
 
   main { padding: 4px 16px 0; display: grid; gap: 10px; max-width: 672px; margin: 0 auto; }
   .group { margin: 14px 2px 2px; font-size: 13px; font-weight: 600; color: var(--body); display: flex; justify-content: space-between; gap: 10px; }
@@ -202,10 +208,15 @@
       <div><div class="label">Who (optional)</div><input id="who" autocomplete="off" placeholder="Brian"></div>
     </div>
     <div class="picks" id="crew" style="margin-top:8px"></div>
+    <div class="two" id="route" hidden>
+      <div><div class="label">From</div><input id="from" autocomplete="off" placeholder="China Mall"></div>
+      <div><div class="label">To</div><input id="to" autocomplete="off" placeholder="Brookside One"></div>
+    </div>
     <div class="label">Or type it yourself</div><input id="free" autocomplete="off" placeholder="Supper 200 each for Brian and Isaiah on A5">
     <div class="preview" id="preview" aria-live="polite"></div>
   </div>
   <div id="text-fields" hidden><textarea id="long" autocomplete="off"></textarea></div>
+  <div id="owed-fields" hidden><div class="picks" id="owedkinds"></div></div>
   <div class="sheet-actions"><button class="act quiet" id="cancel">Cancel</button><button class="act yes" id="send">Send</button></div>
   <div class="qa" id="qa" hidden></div>
 </dialog>
@@ -337,7 +348,7 @@ function brief() {
   if (dept === 'all') { const parts = Object.keys(DEPTS).filter(k => k !== 'all').map(k => [DEPTS[k].tab, todo(k).length]).filter(x => x[1]); return n ? `<b>${n} thing${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} you</b> — ${parts.map(([t, c]) => `${t} ${c}`).join(' · ')}.${w ? ` ${w} waiting on an operator.` : ''}` : `<b>Nothing needs you.</b>${w ? ` ${w} waiting on an operator.` : ''}` }
   if (dept === 'machines') { const ms = b.machines || [], m3 = ms.reduce((a, m) => a + Number(m.m3 || 0), 0), quiet = ms.filter(m => m.quiet_min); return `<b>${ms.length} machine${ms.length === 1 ? '' : 's'} out, ${Math.round(m3 * 10) / 10} m³ so far.</b> ${ms.filter(m => m.er).length} closed their day.${quiet.length ? ` Quiet: ${quiet.map(m => m.code).join(', ')}.` : ''}${tail}` }
   if (dept === 'fuel') { const fs = b.fuel || [], rf = fs.reduce((a, f) => a + f.refuels, 0); return `<b>${fs.length} gauge${fs.length === 1 ? '' : 's'} read today, ${rf} refuel${rf === 1 ? '' : 's'}.</b>${tail}` }
-  if (dept === 'money') { const m = b.money || {}; return `<b>KES ${kes(m.out)} out today in ${m.n_out || 0} payment${m.n_out === 1 ? '' : 's'}.</b> KES ${kes(m.proven)} proven by your own word.${m.gaps ? ` ${m.gaps} text${m.gaps === 1 ? '' : 's'} never reached me.` : ''}${tail}` }
+  if (dept === 'money') { const m = b.money || {}; return `<b>KES ${kes(m.out)} out today in ${m.n_out || 0} payment${m.n_out === 1 ? '' : 's'}.</b> KES ${kes(m.proven)} proven by your own word.${m.gaps ? ` ${m.gaps} text${m.gaps === 1 ? '' : 's'} never reached me.` : ''}${(feed.owed || []).length ? ` KES ${kes((feed.owed || []).reduce((a, o) => a + Number(o.amount_ksh), 0))} owed on the registers.` : ''}${tail}` }
   if (dept === 'business') return `<b>Other business</b> — spending that belongs to no machine: KES ${kes((b.money || {}).business)} today.${tail}`
   if (dept === 'personal') return `<b>Other personal</b> — kept off the business books: KES ${kes((b.money || {}).personal)} today.${tail}`
   return `<b>Kit</b> — transfers, items, what stands at the sites.${tail}`
@@ -387,13 +398,33 @@ function everything() {
   flush()
   return html
 }
+// who is owed, by the ending registers (the owner, 2 Oct 2026: "the bot tells me who's owed something, using the ERs uploaded, i pay
+// then the bot matches the names to the payments automatically as the confirmations come in" · "i need to be able to change the purpose
+// of the owed pending payments")
+const owedSel = new Set()
+const dayName = iso => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+function owedGroups() { const g = new Map(); for (const o of feed.owed || []) { const k = `${o.machine_code}|${o.day_date}|${o.cost_code}`; if (!g.has(k)) g.set(k, []); g.get(k).push(o) } return g }
+function owedHtml() {
+  const rows = feed.owed || []; if (!rows.length) return ''
+  const kinds = feed.kinds || {}, total = rows.reduce((a, o) => a + Number(o.amount_ksh), 0)
+  return `<div class="group"><span>Owed, by the ending registers</span><span>KES ${kes(total)}</span></div>` + [...owedGroups().entries()].map(([k, os]) => {
+    const [m, d, c] = k.split('|'), sum = os.reduce((a, o) => a + Number(o.amount_ksh), 0), n = os.filter(o => owedSel.has(o.id)).length
+    const was = [...new Set(os.filter(o => o.stated_code !== c).map(o => kinds[o.stated_code] || o.stated_code))]
+    return `<section class="item"><div class="meta"><span class="chip need"><span class="dot"></span>Owed</span><span>${esc(m)} · ${dayName(d)}</span></div>
+      <div class="what">${esc(kinds[c] || c)} — ${os.length} ${os.length === 1 ? 'man' : 'men'} · KES ${kes(sum)}</div>
+      ${was.length ? `<div class="was">the register says ${esc(was.join(', ').toLowerCase())}; changed by you</div>` : ''}
+      <div class="picks" style="margin-top:10px">${os.map(o => `<button class="pick" data-owed="${o.id}" aria-pressed="${owedSel.has(o.id)}">${esc(o.staff_name)} · ${kes(o.amount_ksh)}</button>`).join('')}</div>
+      <div class="acts"><button class="act" data-owedact="change" data-g="${esc(k)}">Change purpose</button><button class="act quiet" data-owedact="paid" data-g="${esc(k)}">Paid already</button><button class="act quiet" data-owedact="dismiss" data-g="${esc(k)}">Not owed</button></div>
+      <div class="was">${n ? `${n} picked` : 'for all of them — or tap names to pick some'}</div></section>` }).join('')
+}
 function boards(f) {
   const b = feed.board || {}
-  if (dept === 'money' && f !== 'solved' && b.money) { const m = b.money; return `<section class="item"><div class="totals"><div><div class="k">Out today</div><div class="v">${kes(m.out)}</div></div><div><div class="k">Proven</div><div class="v">${kes(m.proven)}</div></div><div><div class="k">No purpose yet</div><div class="v">${kes(m.waiting)}</div></div></div><div class="facts"><span>in <b>${kes(m.in)}</b></span><span>other business <b>${kes(m.business)}</b></span><span>personal <b>${kes(m.personal)}</b></span>${m.gaps ? `<span>texts missing <b>${m.gaps}</b></span>` : ''}</div></section>` }
+  if (dept === 'money' && f !== 'solved' && b.money) { const m = b.money; return `<section class="item"><div class="totals"><div><div class="k">Out today</div><div class="v">${kes(m.out)}</div></div><div><div class="k">Proven</div><div class="v">${kes(m.proven)}</div></div><div><div class="k">No purpose yet</div><div class="v">${kes(m.waiting)}</div></div></div><div class="facts"><span>in <b>${kes(m.in)}</b></span><span>other business <b>${kes(m.business)}</b></span><span>personal <b>${kes(m.personal)}</b></span>${m.explained ? `<span>in your words <b>${kes(m.explained)}</b></span>` : ''}${m.gaps ? `<span>texts missing <b>${m.gaps}</b></span>` : ''}</div></section>` }
   return ''
 }
 function boardsBelow(f) {
   const b = feed.board || {}
+  if (dept === 'money' && f !== 'solved') return owedHtml()   // after what needs him: the payments first, then who is owed
   if (dept === 'machines' && f !== 'solved' && (b.machines || []).length) return `<div class="group"><span>Today's machines</span><span>${b.machines.length}</span></div>` + b.machines.map(m => {
     const eng = m.engine && m.engine.end != null ? Math.round((m.engine.end - m.engine.start) * 10) / 10 : null, q = m.quiet_min
     return `<section class="item"><div class="mach"><div class="code">${esc(m.code)}</div><div><div class="who">${esc(m.who || '')}</div><div class="where">${esc([m.area, m.site].filter(Boolean).join(' · '))}</div></div><div class="vol">${m.m3} m³<small>${m.trucks} truck${m.trucks === 1 ? '' : 's'}</small></div>
@@ -439,6 +470,16 @@ document.addEventListener('click', async e => {
   const b = e.target.closest('button'), art = e.target.closest('.item.solved')
   if (b?.dataset.d) { dept = b.dataset.d; window.scrollTo({ top: 0 }); return render() }
   if (b?.dataset.f) { filters[dept] = b.dataset.f; window.scrollTo({ top: 0 }); return render() }
+  if (b?.dataset.owed) { const id = Number(b.dataset.owed); owedSel.has(id) ? owedSel.delete(id) : owedSel.add(id); return render() }
+  if (b?.dataset.owedact) {
+    const os = owedGroups().get(b.dataset.g) || [], picked = os.filter(o => owedSel.has(o.id)), ids = (picked.length ? picked : os).map(o => o.id)
+    if (!ids.length) return
+    if (b.dataset.owedact === 'change') return openSheet({ owed: ids })
+    b.disabled = true
+    const ok = await say({ action: b.dataset.owedact === 'paid' ? 'owed_paid' : 'owed_dismiss', ids })
+    if (ok) ids.forEach(i => owedSel.delete(i))
+    return
+  }
   if (b?.dataset.share) { const r = feed.rows.find(x => String(x.id) === b.dataset.share); if (r) { if (navigator.share) navigator.share({ text: r.body }).catch(() => {}); else { await navigator.clipboard.writeText(r.body); toast('Copied') } } return }
   if (b?.dataset.reopen) { const t = things.find(x => x.key === b.dataset.reopen); if (!t) return; b.disabled = true; opened.delete(t.key); await say({ action: 'reopen', id: t.r.id, item: t.item }); return }
   if (b?.dataset.k) {
@@ -470,7 +511,13 @@ function composed() {
   return [k[2] ? compose.machine : null, k[1], Number(amt).toLocaleString('en-US'), who ? `for ${who}` : null].filter(Boolean).join(' ')
 }
 const dayWords = () => { const d = lastDays().find(x => x.iso === compose.day); return d && d.label !== 'Today' ? ` · ${d.label}${compose.shift === 'night' ? ' (night)' : ''}` : compose.shift === 'night' ? ' · tonight' : '' }
-function preview() { const t = composed(); $('preview').textContent = t ? t + dayWords() : 'Pick a kind and an amount.'; $('send').disabled = !t && compose.mode !== 'business' }
+// a move between sites has a from and a to ("it would help if selecting between sites spawned from and to boxes")
+const routeWords = () => { const f = $('from').value.trim(), t = $('to').value.trim(); return compose.kind === 'Between sites' && (f || t) ? ` · ${f || '?'} → ${t || '?'}` : '' }
+function preview() {
+  if (compose.mode === 'owed') { $('send').disabled = !compose.code; return }
+  $('route').hidden = compose.kind !== 'Between sites'
+  const t = composed(); $('preview').textContent = t ? t + routeWords() + dayWords() : 'Pick a kind and an amount.'; $('send').disabled = !t && compose.mode !== 'business'
+}
 // the men on the chosen machine's registers of the chosen day — the payment's payee first when he is one of them
 async function crew() {
   const el = $('crew'); if (!compose.machine || !compose.day) { el.innerHTML = ''; return }
@@ -483,10 +530,11 @@ async function crew() {
   preview()
 }
 function openSheet(pre = {}) {
-  const mode = pre.ask ? 'ask' : pre.paste ? 'paste' : pre.bucket === 'business' ? 'business' : 'cost'
+  const mode = pre.owed ? 'owed' : pre.ask ? 'ask' : pre.paste ? 'paste' : pre.bucket === 'business' ? 'business' : 'cost'
   compose = { mode, machine: pre.machine || null, kind: null, receipt: pre.receipt || null, id: pre.id || null, item: pre.item || 0, day: pre.day || lastDays()[0].iso, shift: pre.shift === 'night' ? 'night' : 'day', who: pre.who || null }
   $('amount').value = pre.amount ? Number(pre.amount).toLocaleString('en-US') : ''; $('who').value = ''; $('free').value = ''; $('long').value = ''
-  $('cost-fields').hidden = mode !== 'cost'; $('text-fields').hidden = mode === 'cost'; $('qa').hidden = mode !== 'ask'
+  $('cost-fields').hidden = mode !== 'cost'; $('text-fields').hidden = mode === 'cost' || mode === 'owed'; $('owed-fields').hidden = mode !== 'owed'; $('qa').hidden = mode !== 'ask'
+  $('from').value = ''; $('to').value = ''; compose.ids = pre.owed || null; compose.code = null
   const amt = pre.amount ? `KES ${Number(pre.amount).toLocaleString('en-US')}` : ''
   if (mode === 'cost') {
     $('sheet-title').textContent = pre.receipt ? 'What was this payment for?' : 'Say a cost'
@@ -497,6 +545,11 @@ function openSheet(pre = {}) {
     picks($('machines'), feed.machines || [], () => compose.machine, v => { compose.machine = v; crew() })
     picks($('kinds'), KINDS.map(k => k[0]), () => compose.kind, v => compose.kind = v)
     crew()
+  } else if (mode === 'owed') {
+    const kinds = feed.kinds || {}
+    $('sheet-title').textContent = 'What were these for?'
+    $('sheet-hint').textContent = `${compose.ids.length} line${compose.ids.length === 1 ? '' : 's'} on the owed list — the register's word is replaced by yours; a payment is then matched to this kind.`
+    picks($('owedkinds'), Object.values(kinds), () => kinds[compose.code], v => { compose.code = Object.keys(kinds).find(k => kinds[k] === v) || null })
   } else if (mode === 'business') {
     $('sheet-title').textContent = 'Other business — what was it?'
     $('sheet-hint').textContent = `M-Pesa ${pre.receipt} · ${amt} — filed under Other (Business), off the machines' books. A word on what it was helps later (rent, licence…).`
@@ -519,15 +572,17 @@ addEventListener('scroll', () => { const c = document.body.classList; if (!c.con
 $('fab').onclick = () => openSheet()
 $('ask').onclick = () => openSheet({ ask: true })
 $('cancel').onclick = () => $('sheet').close()
-for (const id of ['amount', 'who', 'free', 'long']) $(id).oninput = preview
+for (const id of ['amount', 'who', 'free', 'long', 'from', 'to']) $(id).oninput = preview
 $('send').onclick = async () => {
   const text = composed(), at = compose.id ? { id: compose.id, item: compose.item } : {}
-  if (!text && compose.mode !== 'business') return
+  if (!text && compose.mode !== 'business' && compose.mode !== 'owed') return
   $('send').disabled = true
-  const ok = compose.mode === 'business' ? await say({ action: 'business', receipt: compose.receipt, note: text, ...at })
+  const route = compose.kind === 'Between sites' ? { from: $('from').value.trim() || undefined, to: $('to').value.trim() || undefined } : {}
+  const ok = compose.mode === 'owed' ? await say({ action: 'owed_change', ids: compose.ids, code: compose.code })
+    : compose.mode === 'business' ? await say({ action: 'business', receipt: compose.receipt, note: text, ...at })
     : compose.mode === 'ask' ? await say({ action: 'ask', department: dept, question: text })
-    : await say({ text, receipt: compose.receipt, day: compose.day, shift: compose.shift, ...at })
-  if (ok) { if (compose.mode === 'ask') { $('long').value = ''; thread() } else $('sheet').close() }
+    : await say({ text, receipt: compose.receipt, day: compose.day, shift: compose.shift, ...route, ...at })
+  if (ok) { if (compose.mode === 'owed') owedSel.clear(); if (compose.mode === 'ask') { $('long').value = ''; thread() } else $('sheet').close() }
   $('send').disabled = false
 }
 start()
