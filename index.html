@@ -4,7 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>PumpOps</title>
-<meta name="theme-color" content="#030712">
+<meta name="theme-color" content="#05080d" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#eef2f7" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="PumpOps">
@@ -12,122 +13,256 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
 <style>
+  /* THE BOT'S PAGE (W18, 1 Oct 2026): departments along the bottom, needs-you / solved / everything, liquid glass. No data lives here. */
   :root {
-    --page: #030712; --surface: #111827; --raised: #1f2937; --border: #1f2937; --ink: #ffffff; --body: #9ca3af; --strong: #d1d5db;
-    --primary: #16a34a; --primary-ink: #4ade80; --primary-deep: #14532d; --danger: #f87171; --danger-deep: #7f1d1d;
-    --warning: #fbbf24; --warning-deep: #78350f; --info: #60a5fa; --info-deep: #1e3a8a;
-    --z-sticky: 10; --z-sheet: 30; --z-toast: 40;
+    color-scheme: dark;
+    --bg-a: #06131c; --bg-b: #0b1f1a; --bg-c: #101327; --page: #05080d;
+    --ink: #f4f7fb; --strong: #d6dde8; --body: #a3afc2;
+    --glass: rgba(22, 30, 44, .58); --glass-strong: rgba(18, 25, 38, .78); --card: rgba(20, 28, 42, .72); --solid: #121a27;
+    --edge: rgba(255, 255, 255, .13); --edge-top: rgba(255, 255, 255, .30); --shadow: 0 10px 34px rgba(0, 0, 0, .42);
+    --primary: #22c55e; --primary-ink: #86efac; --primary-on: #04210f;
+    --warn: #fbbf24; --warn-bg: rgba(251, 191, 36, .16); --danger: #fca5a5; --info: #93c5fd; --info-bg: rgba(96, 165, 250, .16);
+    --ok-bg: rgba(34, 197, 94, .16); --track: rgba(255, 255, 255, .10); --badge: #fbbf24; --badge-on: #1c1203;
+    --z-bar: 20; --z-sheet: 40; --z-toast: 50;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      color-scheme: light;
+      --bg-a: #dfeaf5; --bg-b: #e6f1ea; --bg-c: #ece9f6; --page: #eef2f7;
+      --ink: #0b1220; --strong: #1f2a3a; --body: #4a5668;
+      --glass: rgba(255, 255, 255, .52); --glass-strong: rgba(255, 255, 255, .74); --card: rgba(255, 255, 255, .70); --solid: #f7f9fc;
+      --edge: rgba(15, 23, 42, .10); --edge-top: rgba(255, 255, 255, .95); --shadow: 0 10px 30px rgba(15, 23, 42, .14);
+      --primary: #15803d; --primary-ink: #166534; --primary-on: #ffffff;
+      --warn: #92400e; --warn-bg: rgba(217, 119, 6, .16); --danger: #b91c1c; --info: #1d4ed8; --info-bg: rgba(37, 99, 235, .12);
+      --ok-bg: rgba(21, 128, 61, .13); --track: rgba(15, 23, 42, .10); --badge: #b45309; --badge-on: #ffffff;
+    }
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; background: var(--page); color: var(--strong); font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
-  body { min-height: 100dvh; padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 88px) env(safe-area-inset-left); }
-  header { position: sticky; top: 0; z-index: var(--z-sticky); background: var(--page); padding: 14px 16px 10px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  h1 { margin: 0; font-size: 18px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
-  .tabs { display: flex; gap: 6px; }
-  .tab { font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--body); min-height: 36px; }
-  .tab[aria-pressed="true"] { background: var(--raised); color: var(--ink); }
-  main { padding: 12px 16px; display: grid; gap: 10px; max-width: 640px; margin: 0 auto; }
-  .gate { margin: 18vh auto 0; max-width: 420px; padding: 0 20px; text-align: left; }
-  .gate h2 { color: var(--ink); font-size: 22px; font-weight: 600; margin: 0 0 10px; text-wrap: balance; }
+  html, body { margin: 0; }
+  body {
+    min-height: 100dvh; color: var(--strong); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    background:
+      radial-gradient(120% 60% at 12% 0%, var(--bg-b) 0%, transparent 62%),
+      radial-gradient(90% 55% at 100% 18%, var(--bg-c) 0%, transparent 60%),
+      radial-gradient(110% 70% at 50% 100%, var(--bg-a) 0%, transparent 70%), var(--page);
+    background-attachment: fixed;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 112px) env(safe-area-inset-left);
+  }
+  button, input, textarea { font: inherit; color: inherit; }
+  [hidden] { display: none !important; }
+  .glass { background: var(--glass); -webkit-backdrop-filter: blur(26px) saturate(180%); backdrop-filter: blur(26px) saturate(180%); border: 1px solid var(--edge); box-shadow: inset 0 1px 0 var(--edge-top), var(--shadow); }
+
+  /* the gate (add to home screen · turn on notifications · waiting for approval) */
+  .gate { margin: 16vh auto 0; max-width: 420px; padding: 0 20px; }
+  .gate h2 { color: var(--ink); font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 10px; text-wrap: balance; }
   .gate p, .gate li { color: var(--body); }
   .gate ol { padding-left: 20px; display: grid; gap: 6px; }
-  .big { font: inherit; font-weight: 600; font-size: 16px; width: 100%; min-height: 52px; border-radius: 12px; border: 0; background: var(--primary); color: #fff; margin-top: 18px; }
+  .big { font-weight: 600; font-size: 16px; width: 100%; min-height: 52px; border-radius: 14px; border: 0; background: var(--primary); color: var(--primary-on); margin-top: 18px; }
   .big:disabled { opacity: .5; }
-  .msg { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px; scroll-margin-top: 70px; }
-  .msg.flash { border-color: var(--primary); }
-  .meta { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--body); margin-bottom: 6px; }
-  .kind { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; background: var(--raised); color: var(--strong); }
-  .kind.mpesa { background: var(--primary-deep); color: var(--primary-ink); }
-  .kind.alert { background: var(--warning-deep); color: var(--warning); }
-  .kind.summary { background: var(--info-deep); color: var(--info); }
-  .kind.fuel { background: var(--warning-deep); color: var(--warning); }
-  .text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--strong); }
-  .text b { color: var(--ink); font-weight: 600; }
-  .msg.receipt { padding: 8px 14px; }
-  .msg.receipt .text { color: var(--body); font-size: 14px; }
+
+  /* header */
+  header { position: sticky; top: env(safe-area-inset-top); z-index: var(--z-bar); padding: 10px 16px 10px; max-width: 672px; margin: 0 auto; }
+  /* what scrolls under the status bar and the strip above the glass fades into the page */
+  header::before { content: ""; position: absolute; left: 0; right: 0; top: calc(-1 * env(safe-area-inset-top)); height: calc(env(safe-area-inset-top) + 26px); background: linear-gradient(var(--page) 55%, transparent); z-index: -1; pointer-events: none; }
+  /* scrolled: the brief folds away, the title and the filter stay */
+  .scrolled .brief { display: none; }
+  .scrolled .head { padding: 10px 14px 10px; }
+  .scrolled h1 { font-size: 19px; }
+  .scrolled .seg { margin-top: 8px; }
+  .head { border-radius: 22px; padding: 14px 16px 12px; }
+  .title-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  h1 { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
+  .title-side { display: flex; align-items: center; gap: 10px; }
+  .date { font-size: 13px; color: var(--body); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ask { white-space: nowrap; min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--edge); background: var(--glass-strong); color: var(--ink); font-size: 13px; font-weight: 600; box-shadow: inset 0 1px 0 var(--edge-top); }
+  .brief { margin: 8px 0 0; color: var(--strong); font-size: 14.5px; text-wrap: pretty; }
+  .brief b { color: var(--ink); font-weight: 600; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 12px; padding: 4px; border-radius: 14px; background: var(--track); }
+  .seg button { border: 0; background: transparent; min-height: 36px; border-radius: 10px; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 0 6px; color: var(--body); transition: background .18s ease-out, color .18s ease-out; }
+  .seg button[aria-pressed="true"] { background: var(--glass-strong); color: var(--ink); box-shadow: inset 0 1px 0 var(--edge-top), 0 1px 6px rgba(0,0,0,.18); }
+  .seg .n { font-variant-numeric: tabular-nums; opacity: .8; margin-left: 4px; }
+
+  main { padding: 4px 16px 0; display: grid; gap: 10px; max-width: 672px; margin: 0 auto; }
+  .group { margin: 14px 2px 2px; font-size: 13px; font-weight: 600; color: var(--body); display: flex; justify-content: space-between; gap: 10px; }
+
+  /* a thing */
+  .item { background: var(--card); -webkit-backdrop-filter: blur(18px) saturate(160%); backdrop-filter: blur(18px) saturate(160%); border: 1px solid var(--edge); box-shadow: inset 0 1px 0 var(--edge-top); border-radius: 18px; padding: 13px 14px; scroll-margin-top: 190px; transition: background .2s ease-out, border-color .3s ease-out; }
+  .item.flash { border-color: var(--primary); }
+  .meta { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--body); margin-bottom: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; background: var(--track); color: var(--strong); white-space: nowrap; }
+  .chip.need { background: var(--warn-bg); color: var(--warn); }
+  .chip.done { background: var(--ok-bg); color: var(--primary-ink); }
+  .chip.info { background: var(--info-bg); color: var(--info); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+  .what { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+  .more { margin-top: 3px; color: var(--strong); white-space: pre-wrap; overflow-wrap: anywhere; }
   .acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .act { font: inherit; font-size: 14px; min-height: 40px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--raised); color: var(--ink); }
-  .act.yes { background: var(--primary); border-color: var(--primary); font-weight: 600; }
-  .act.quiet { background: transparent; color: var(--body); }
-  .act.no { color: var(--danger); background: transparent; }
+  .act { min-height: 40px; padding: 8px 13px; border-radius: 12px; border: 1px solid var(--edge); background: var(--glass-strong); color: var(--ink); font-size: 14px; box-shadow: inset 0 1px 0 var(--edge-top); }
+  .act.yes { background: var(--primary); border-color: transparent; color: var(--primary-on); font-weight: 600; box-shadow: none; }
+  .act.quiet { background: transparent; box-shadow: none; color: var(--body); }
   .act:disabled { opacity: .45; }
-  .issue { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
-  .issue-text { color: var(--strong); }
-  .issue .acts { margin-top: 8px; }
-  .answer { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); white-space: pre-wrap; color: var(--primary-ink); font-size: 14px; }
-  .fab { position: fixed; right: calc(16px + env(safe-area-inset-right)); bottom: calc(18px + env(safe-area-inset-bottom)); z-index: var(--z-sticky); font: inherit; font-weight: 600; font-size: 15px; min-height: 52px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--primary); color: #fff; box-shadow: 0 6px 24px rgba(0,0,0,.5); }
-  dialog { z-index: var(--z-sheet); border: 1px solid var(--border); border-radius: 16px 16px 0 0; background: var(--surface); color: var(--strong); width: 100%; max-width: 640px; margin: auto auto 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 88dvh; overflow-y: auto; }
-  dialog::backdrop { background: rgba(3,7,18,.7); }
-  dialog h2 { margin: 0 0 4px; font-size: 16px; font-weight: 600; color: var(--ink); }
+  :is(.act, .seg button, .tab, .ask, .big, input, textarea, .pick):focus-visible { outline: 2px solid var(--primary-ink); outline-offset: 2px; }
+  .answer { margin-top: 4px; font-size: 13.5px; color: var(--primary-ink); overflow-wrap: anywhere; }
+  .was { margin-top: 4px; font-size: 13.5px; color: var(--body); overflow-wrap: anywhere; }
+
+  /* solved: one quiet line, the answer kept; tap to open */
+  .item.solved { padding: 10px 14px; background: color-mix(in srgb, var(--card) 55%, transparent); box-shadow: none; cursor: pointer; }
+  .item.solved .what { font-weight: 500; color: var(--body); }
+  .item.solved .more, .item.solved .acts { display: none; }
+  .item.solved.open .more { display: block; color: var(--body); }
+  .item.solved.open .acts { display: flex; }
+
+  /* quiet rows (what was received) */
+  .rows { background: var(--card); border: 1px solid var(--edge); border-radius: 18px; padding: 4px 12px; -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
+  .row { display: flex; gap: 10px; align-items: baseline; padding: 9px 4px; border-bottom: 1px solid var(--edge); font-size: 14px; }
+  .row:last-child { border-bottom: 0; }
+  .row time { color: var(--body); font-size: 12.5px; font-variant-numeric: tabular-nums; min-width: 40px; }
+  .row .txt { color: var(--strong); overflow-wrap: anywhere; white-space: pre-wrap; }
+
+  /* a summary: one sub-head per machine */
+  .sum h3 { margin: 12px 0 2px; font-size: 14.5px; font-weight: 700; color: var(--ink); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .sum h3:first-of-type { margin-top: 2px; }
+  .sum h3 span { font-weight: 500; color: var(--body); font-size: 13px; text-align: right; }
+  .sum p { margin: 0; color: var(--strong); font-size: 14px; overflow-wrap: anywhere; }
+  .sum .w { color: var(--warn); }
+
+  /* machines */
+  .mach { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; }
+  .code { font-size: 20px; font-weight: 700; color: var(--ink); min-width: 44px; letter-spacing: -0.01em; }
+  .who { color: var(--ink); font-weight: 600; }
+  .where { color: var(--body); font-size: 13.5px; }
+  .vol { text-align: right; color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .vol small { display: block; font-weight: 400; color: var(--body); font-size: 12.5px; }
+  .steps { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+  /* fuel */
+  .fuel-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .gauge { position: relative; height: 12px; border-radius: 999px; background: var(--track); margin: 12px 2px 22px; }
+  .gauge .fill { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: var(--primary); }
+  .gauge .tick { position: absolute; top: -4px; width: 2px; height: 20px; border-radius: 2px; background: var(--ink); opacity: .75; }
+  .gauge .lab { position: absolute; top: 20px; transform: translateX(-50%); font-size: 11.5px; color: var(--body); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13.5px; color: var(--strong); }
+  .facts b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  /* money totals */
+  .totals { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; }
+  .totals .k { font-size: 12.5px; color: var(--body); }
+  .totals .v { font-size: 19px; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .totals + .facts { margin-top: 10px; }
+
+  /* the departments: a floating glass capsule */
+  nav { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom)); z-index: var(--z-bar); width: min(calc(100% - 24px), 560px); border-radius: 28px; padding: 6px; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity; }
+  nav::-webkit-scrollbar { display: none; }
+  .tab { position: relative; flex: 1 0 auto; min-width: 66px; scroll-snap-align: center; border: 0; background: transparent; border-radius: 22px; min-height: 54px; display: grid; place-items: center; gap: 2px; padding: 6px 8px; color: var(--body); font-size: 11.5px; font-weight: 500; transition: background .18s ease-out, color .18s ease-out; }
+  .tab svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tab[aria-current="page"] { background: var(--glass-strong); color: var(--ink); box-shadow: inset 0 1px 0 var(--edge-top), 0 2px 10px rgba(0,0,0,.2); }
+  .badge { position: absolute; top: 4px; right: calc(50% - 26px); min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--badge); color: var(--badge-on); font-size: 11px; font-weight: 700; display: grid; place-items: center; font-variant-numeric: tabular-nums; }
+  .fab { position: fixed; right: calc(16px + env(safe-area-inset-right)); bottom: calc(92px + env(safe-area-inset-bottom)); z-index: var(--z-bar); min-height: 48px; padding: 0 18px; border-radius: 999px; color: var(--ink); font-weight: 600; }
+
+  /* the sheets: say a cost · what was it · paste a text · ask the manager */
+  dialog { z-index: var(--z-sheet); border: 1px solid var(--edge); border-radius: 22px 22px 0 0; background: var(--solid); color: var(--strong); width: 100%; max-width: 640px; margin: auto auto 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 88dvh; overflow-y: auto; box-shadow: var(--shadow); }
+  dialog::backdrop { background: rgba(3, 7, 18, .55); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); }
+  dialog h2 { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: var(--ink); }
   .hint { font-size: 13px; color: var(--body); margin: 0 0 12px; }
-  .label { font-size: 12px; font-weight: 500; color: var(--body); margin: 14px 0 6px; }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
-  .chip { font: inherit; font-size: 14px; min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: transparent; color: var(--strong); }
-  .chip[aria-pressed="true"] { background: var(--primary-deep); border-color: var(--primary); color: var(--primary-ink); }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  input { font: inherit; font-size: 16px; width: 100%; min-height: 46px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--page); color: var(--ink); }
-  input::placeholder { color: #6b7280; }
-  input:focus-visible, button:focus-visible { outline: 2px solid var(--primary-ink); outline-offset: 2px; }
-  .preview { margin-top: 14px; padding: 10px 12px; border-radius: 10px; background: var(--page); border: 1px dashed var(--border); color: var(--ink); min-height: 44px; font-size: 15px; }
+  .label { font-size: 12.5px; font-weight: 500; color: var(--body); margin: 14px 0 6px; }
+  .picks { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pick { font-size: 14px; min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--edge); background: transparent; color: var(--strong); }
+  .pick[aria-pressed="true"] { background: var(--ok-bg); border-color: var(--primary); color: var(--primary-ink); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  input, textarea { font-size: 16px; width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--edge); background: var(--track); color: var(--ink); }
+  textarea { min-height: 110px; resize: vertical; }
+  input::placeholder, textarea::placeholder { color: var(--body); opacity: .8; }
+  .preview { margin-top: 14px; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--edge); color: var(--ink); min-height: 44px; font-size: 15px; overflow-wrap: anywhere; }
   .sheet-actions { display: grid; grid-template-columns: auto 1fr; gap: 8px; margin-top: 14px; }
-  .toast { position: fixed; left: 50%; bottom: calc(86px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: var(--z-toast); background: var(--raised); color: var(--ink); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; font-size: 14px; max-width: min(92vw, 520px); white-space: pre-wrap; opacity: 0; pointer-events: none; transition: opacity .2s ease-out; }
+  .qa { margin-top: 14px; display: grid; gap: 10px; }
+  .qa .q { color: var(--ink); font-weight: 600; }
+  .qa .a { color: var(--strong); white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 2px; }
+  .qa .wait { color: var(--body); font-style: italic; }
+  .qa > div { padding-top: 10px; border-top: 1px solid var(--edge); }
+
+  .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(150px + env(safe-area-inset-bottom)); z-index: var(--z-toast); border-radius: 14px; padding: 10px 14px; font-size: 14px; color: var(--ink); opacity: 0; pointer-events: none; transition: opacity .2s ease-out; max-width: min(92vw, 460px); white-space: pre-wrap; }
   .toast.on { opacity: 1; }
-  .empty { color: var(--body); text-align: center; padding: 40px 0; }
-  @media (prefers-reduced-motion: reduce) { .toast { transition: none; } }
+  .empty { text-align: center; color: var(--body); padding: 36px 12px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
 <body>
-<header id="bar" hidden>
-  <h1>PumpOps</h1>
-  <div class="tabs" role="group" aria-label="What to show">
-    <button class="tab" id="tab-main" aria-pressed="true">Payments &amp; alerts</button>
-    <button class="tab" id="tab-all" aria-pressed="false">Everything</button>
+<header id="bar" hidden><div class="head glass">
+  <div class="title-row"><h1 id="title"></h1><div class="title-side"><span class="date" id="date"></span><button class="ask" id="ask">Ask</button></div></div>
+  <p class="brief" id="brief"></p>
+  <div class="seg" role="group" aria-label="Show">
+    <button data-f="pending" aria-pressed="true">Needs you<span class="n" id="n-p"></span></button>
+    <button data-f="solved" aria-pressed="false">Solved<span class="n" id="n-s"></span></button>
+    <button data-f="all" aria-pressed="false">Everything</button>
   </div>
-</header>
+</div></header>
 <main id="main"></main>
-<button class="fab" id="fab" hidden>+ Say a cost</button>
+<button class="fab glass" id="fab" hidden>+ Say a cost</button>
+<nav class="glass" aria-label="Departments" id="nav" hidden></nav>
 
 <dialog id="sheet" aria-labelledby="sheet-title">
   <h2 id="sheet-title">Say a cost</h2>
-  <p class="hint" id="sheet-hint">Pick the machine and the kind; the bot reads it as if you had dictated it.</p>
-  <div class="label">Machine</div><div class="chips" id="machines"></div>
-  <div class="label">Kind</div><div class="chips" id="kinds"></div>
-  <div class="row">
-    <div><div class="label">Amount (KES)</div><input id="amount" inputmode="numeric" autocomplete="off" placeholder="7,623"></div>
-    <div><div class="label">Who (optional)</div><input id="who" autocomplete="off" placeholder="Brian"></div>
+  <p class="hint" id="sheet-hint"></p>
+  <div id="cost-fields">
+    <div class="label">Machine</div><div class="picks" id="machines"></div>
+    <div class="label">Kind</div><div class="picks" id="kinds"></div>
+    <div class="two">
+      <div><div class="label">Amount (KES)</div><input id="amount" inputmode="numeric" autocomplete="off" placeholder="7,623"></div>
+      <div><div class="label">Who (optional)</div><input id="who" autocomplete="off" placeholder="Brian"></div>
+    </div>
+    <div class="label">Or type it yourself</div><input id="free" autocomplete="off" placeholder="Supper 200 each for Brian and Isaiah on A5">
+    <div class="preview" id="preview" aria-live="polite"></div>
   </div>
-  <div class="label">Or type it yourself</div><input id="free" autocomplete="off" placeholder="Supper 200 each for Brian and Isaiah on A5">
-  <div class="preview" id="preview" aria-live="polite"></div>
+  <div id="text-fields" hidden><textarea id="long" autocomplete="off"></textarea></div>
   <div class="sheet-actions"><button class="act quiet" id="cancel">Cancel</button><button class="act yes" id="send">Send</button></div>
+  <div class="qa" id="qa" hidden></div>
 </dialog>
-<div class="toast" id="toast" role="status"></div>
+<div class="toast glass" id="toast" role="status"></div>
 
 <script>
 const FN = 'https://fepsvkuutodaihotucuh.supabase.co/functions/v1/whatsapp-webhook'
 const VAPID = 'BP2UhZjRq3DyhhjuaqQ9QW9Di2G2Gs7xT-MkG0IYWqWBy0HSXNQ4L3y0P7h2a3aCOub68ILfEFmAQ873QPGNY2k'
 const KINDS = [['Fuel', 'fuel', 1], ['Fuel run', 'fuel run', 1], ['Engine oil', 'engine oil', 1], ['Hydraulic oil', 'hydraulic oil', 1], ['Early start', 'early start', 1], ['Between sites', 'between sites', 1],
   ['Late finish', 'late finish', 1], ['Breakfast', 'breakfast', 1], ['Supper', 'supper', 1], ['New equipment', 'bought new equipment', 1], ['Advance', 'advance', 0], ['Pay', 'salary', 0]]
+const DEPTS = {
+  all: { title: 'All', tab: 'All', icon: '<path d="M4 6h16M4 12h16M4 18h10"/>' },
+  machines: { title: 'Machines', tab: 'Machines', icon: '<rect x="3" y="9" width="13" height="8" rx="2"/><path d="M16 12h3l2 3v2h-5M7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/>' },
+  fuel: { title: 'Fuel', tab: 'Fuel', icon: '<path d="M12 3s6 6.2 6 10.5A6 6 0 0 1 6 13.5C6 9.2 12 3 12 3Z"/>' },
+  money: { title: 'Money', tab: 'Money', icon: '<rect x="3" y="6" width="18" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/>' },
+  kit: { title: 'Kit', tab: 'Kit', icon: '<path d="M4 8l8-4 8 4v8l-8 4-8-4V8Zm0 0 8 4m0 0 8-4m-8 4v8"/>' },
+  business: { title: 'Other (Business)', tab: 'Business', icon: '<path d="M4 20V8l8-4 8 4v12M9 20v-5h6v5M9 11h.01M15 11h.01"/>' },
+  personal: { title: 'Other (Personal)', tab: 'Personal', icon: '<circle cx="12" cy="8" r="3.5"/><path d="M5 20c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>' },
+}
+const KIND = { mpesa: 'Payment', alert: 'Alert', summary: 'Summary', reply: 'Bot', receipt: 'Received', fuel: 'Fuel' }
 const $ = id => document.getElementById(id)
-const main = $('main'), store = { get token() { try { return localStorage.getItem('pumpops.token') } catch { return null } }, set token(v) { try { v ? localStorage.setItem('pumpops.token', v) : localStorage.removeItem('pumpops.token') } catch {} } }
+const main = $('main')
+const store = { get token() { try { return localStorage.getItem('pumpops.token') } catch { return null } }, set token(v) { try { v ? localStorage.setItem('pumpops.token', v) : localStorage.removeItem('pumpops.token') } catch {} } }
 const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches
-let showAll = false, rows = [], machines = ['A', 'A2', 'A3', 'A4', 'A5', 'S', 'TRK'], answers = {}, compose = { machine: null, kind: null, receipt: null }, timer = null
-const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+let feed = { rows: [], answers: [], board: { machines: [], fuel: [], money: {} }, briefs: null, questions: [], machines: ['A', 'A2', 'A3', 'A4', 'A5', 'S', 'TRK'] }
+let things = [], dept = 'all', timer = null, busy = false
+const filters = { all: 'all' }, opened = new Set()
+let compose = { mode: 'cost', machine: null, kind: null, receipt: null, id: null, item: 0 }
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const kes = n => Number(n || 0).toLocaleString('en-US')
 const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 5000) }
 const key = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)) }
 const api = async (task, opts = {}) => {
+  if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
   const r = await fetch(`${FN}?task=${task}`, { method: opts.body ? 'POST' : 'GET', headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(store.token ? { 'x-device-token': store.token } : {}) }, body: opts.body ? JSON.stringify(opts.body) : undefined })
   return { status: r.status, data: await r.json().catch(() => ({})) }
 }
 
-function gate(html) { $('bar').hidden = true; $('fab').hidden = true; main.innerHTML = `<section class="gate">${html}</section>` }
+// ── the gate: home screen → notifications → approval ──
+function gate(html) { for (const id of ['bar', 'fab', 'nav']) $(id).hidden = true; main.innerHTML = `<section class="gate">${html}</section>` }
 async function start() {
+  if (window.FIXTURE) return show()
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     if (!standalone) return gate('<h2>Add PumpOps to your home screen</h2><ol><li>Tap the Share button in Safari.</li><li>Choose <b>Add to Home Screen</b>.</li><li>Open <b>PumpOps</b> from the home screen.</li></ol><p>Notifications only work from the home-screen app.</p>')
     return gate('<h2>This phone can\'t receive notifications here</h2><p>It needs iOS 16.4 or later.</p>')
   }
   const reg = await navigator.serviceWorker.register('sw.js')
   navigator.serviceWorker.addEventListener('message', e => { if (e.data?.open) { load().then(() => focusMsg(e.data.open)) } })
-  if (store.token) return feed()
+  if (store.token) return show()
   const sub = await reg.pushManager.getSubscription()
   if (sub && Notification.permission === 'granted') return waitApproval(sub)
   gate('<h2>Turn on notifications</h2><p>The bot will tell you about every payment, alert and summary, with a sound, and you can answer from here.</p><button class="big" id="enable">Turn on notifications</button>')
@@ -143,92 +278,246 @@ async function waitApproval(sub) {
   gate('<h2>Waiting for approval</h2><p>This phone has asked to receive the bot\'s messages. Tell Code you\'ve turned it on; it approves this one device, and this screen moves on by itself.</p>')
   const ask = async () => {
     const { data } = await api('subscribe', { body: { subscription: sub.toJSON(), label: (navigator.userAgent.match(/iPhone|iPad|Macintosh|Android/) || ['device'])[0] } })
-    if (data.status === 'approved' && data.token) { store.token = data.token; clearInterval(timer); feed() }
+    if (data.status === 'approved' && data.token) { store.token = data.token; clearInterval(timer); show() }
     else if (data.status === 'revoked' || data.status === 'gone') { clearInterval(timer); gate('<h2>This device was removed</h2><p>Ask Code to approve it again.</p>') }
   }
   await ask(); clearInterval(timer); timer = setInterval(ask, 5000)
 }
 
+// ── the feed → the things on the page ──
 async function load() {
-  const { status, data } = await api('feed')
+  const { status, data } = await api('feed').catch(() => ({ status: 0, data: {} }))
   if (status === 403) { store.token = null; return start() }
-  if (data.rows) { rows = data.rows; machines = data.machines || machines; render() }
+  if (data.rows) { feed = data; derive(); render() }
 }
-function feed() {
-  $('bar').hidden = false; $('fab').hidden = false
+function show() {
+  for (const id of ['bar', 'fab', 'nav']) $(id).hidden = false
   load().then(() => { const m = new URLSearchParams(location.search).get('m'); if (m) focusMsg(m) })
-  clearInterval(timer); timer = setInterval(() => { if (!document.hidden && !$('sheet').open) load() }, 30000)
+  // every 30 s; while a question to a manager is open, every 15 s so its answer shows as soon as it is written
+  let tick = 0
+  clearInterval(timer); timer = setInterval(() => {
+    const asking = $('sheet').open && compose.mode === 'ask'
+    if (document.hidden || busy || ($('sheet').open && !asking) || (!asking && tick++ % 2)) return
+    load().then(() => { if ($('sheet').open && compose.mode === 'ask') thread() })
+  }, 15000)
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load() })
 }
-const when = iso => { const d = new Date(iso), t = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + t }
-const LABEL = { mpesa: 'Payment', alert: 'Alert', summary: 'Summary', reply: 'Bot', receipt: 'Received', fuel: 'Fuel' }
-function render() {
-  const list = rows.filter(r => showAll || r.purpose !== 'receipt')
-  if (!list.length) { main.innerHTML = '<p class="empty">Nothing yet today.</p>'; return }
-  main.innerHTML = list.map(r => {
+// one thing per issue of an alert, else one per message; its live answer decides solved / asked
+function derive() {
+  const live = new Map(), was = new Map()
+  for (const a of feed.answers || []) { const k = a.outbox_id + ':' + a.item; if (a.withdrawn_at) was.set(k, a); else live.set(k, a) }
+  things = []
+  for (const r of feed.rows) {
+    if (r.purpose === 'receipt' || r.purpose === 'summary') continue
     const [first, ...rest] = String(r.body).split('\n')
-    const groups = (r.actions || []).filter(a => a.buttons), plain = (r.actions || []).map((a, i) => [a, i]).filter(([a]) => !a.buttons)
-    const acts = plain.map(([a, i]) => `<button class="act ${/^✓/.test(a.label) ? 'yes' : a.action === 'not_business' ? 'no' : ''}" data-id="${r.id}" data-i="${i}" ${answers[r.id] ? 'disabled' : ''}>${esc(a.label)}</button>`).join('')
-    const issues = groups.map((g, gi) => { const k = r.id + ':' + gi; return `<div class="issue"><div class="issue-text">${esc(g.issue)}</div><div class="acts">${g.buttons.map((b, bi) => `<button class="act ${b.answer === 'asked' ? 'yes' : ''}" data-id="${r.id}" data-g="${gi}" data-b="${bi}" ${answers[k] && b.answer !== 'asked' ? 'disabled' : ''}>${esc(b.label)}</button>`).join('')}</div>${answers[k] ? `<div class="answer">${esc(answers[k])}</div>` : ''}</div>` }).join('')
-    return `<article class="msg ${esc(r.purpose)}" id="m${r.id}">
-      <div class="meta"><span class="kind ${esc(r.purpose)}">${LABEL[r.purpose] || esc(r.purpose)}</span><span>${when(r.created_at)}</span></div>
-      <div class="text"><b>${esc(first)}</b>${rest.length && !groups.length ? '\n' + esc(rest.join('\n')) : ''}</div>${issues}
-      ${r.purpose === 'receipt' ? '' : `<div class="acts">${acts}<button class="act quiet" data-share="${r.id}">Forward</button></div>`}
-      ${answers[r.id] ? `<div class="answer">${esc(answers[r.id])}</div>` : ''}
-    </article>`
-  }).join('')
-}
-function focusMsg(id) { const el = $('m' + id); if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 2500) } }
-
-main.addEventListener('click', async e => {
-  const b = e.target.closest('button'); if (!b) return
-  if (b.dataset.share) { const r = rows.find(x => String(x.id) === b.dataset.share); if (r) { if (navigator.share) navigator.share({ text: r.body }).catch(() => {}); else { await navigator.clipboard.writeText(r.body); toast('Copied') } } return }
-  if (!b.dataset.id) return
-  const r = rows.find(x => String(x.id) === b.dataset.id)
-  if (b.dataset.g !== undefined) {   // a button under one issue of an alert
-    const g = (r?.actions || []).filter(a => a.buttons)[Number(b.dataset.g)], a = g?.buttons[Number(b.dataset.b)]; if (!a) return
-    if (a.share) { if (navigator.share) { try { await navigator.share({ text: a.share }) } catch { return } } else { await navigator.clipboard.writeText(a.share); toast('Copied — paste it in his group') } }
-    const { status, data } = await api('reply', { body: { action: 'issue', machine: a.machine, day: a.day, fp: a.fp, answer: a.answer } }).catch(() => ({ status: 0, data: {} }))
-    if (status !== 200) { toast(data.error || 'No connection — try again.'); return }
-    answers[r.id + ':' + b.dataset.g] = data.reply; toast(data.reply); render(); return
+    const groups = (r.actions || []).filter(a => a.buttons), plain = (r.actions || []).filter(a => !a.buttons)
+    // a payment out always offers the three that need no guess (messages from before W18 carry none of them, or only "Not business")
+    const rc = r.purpose === 'mpesa' && r.data && !r.data.in && !r.data.gap_receipt ? r.data.receipt : null
+    if (rc && r.needs_owner) {
+      const amount = r.data.amount || Number((String(r.body).match(/KES\s([\d,]+(?:\.\d+)?)/) || [])[1]?.replace(/,/g, '')) || null
+      if (!plain.some(a => a.compose && !a.compose.bucket)) plain.push({ label: 'Something else…', compose: { amount, receipt: rc } })
+      if (!plain.some(a => a.compose && a.compose.bucket === 'business')) plain.push({ label: 'Other business', compose: { amount, receipt: rc, bucket: 'business' } })
+      const nb = plain.findIndex(a => a.action === 'not_business'); if (nb >= 0) plain.splice(nb, 1)
+      if (!plain.some(a => a.action === 'personal')) plain.push({ label: 'Personal', action: 'personal', receipt: rc })
+    }
+    const add = (item, extra) => { const k = r.id + ':' + item, a = live.get(k); things.push({ key: k, r, item, dept: r.department, at: r.created_at, answer: a || null, solved: !!(a && a.final), asked: !!(a && !a.final), was: !a && was.get(k) ? was.get(k).text : null, needs: r.needs_owner, ...extra }) }
+    if (groups.length) groups.forEach((g, gi) => add(gi, { head: first.replace(/^[^\w]+/u, ''), what: g.issue, more: '', buttons: g.buttons, plain: [] }))
+    else add(0, { head: '', what: first, more: rest.join('\n'), buttons: null, plain })
   }
-  const a = r?.actions?.[Number(b.dataset.i)]; if (!a) return
-  if (a.compose) return openSheet(a.compose)
-  b.disabled = true
-  await say(a.action ? { ...a } : { text: a.text, receipt: a.receipt }, r.id)
-})
-async function say(body, forId) {
+}
+const mine = (d = dept) => things.filter(t => d === 'all' || t.dept === d)
+const pending = d => mine(d).filter(t => t.needs && !t.solved)
+const waiting = d => pending(d).filter(t => t.asked)
+const todo = d => pending(d).filter(t => !t.asked)
+const solved = d => mine(d).filter(t => t.needs && t.solved)
+
+const hm = iso => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+const when = iso => { const d = new Date(iso); return d.toDateString() === new Date().toDateString() ? hm(iso) : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hm(iso) }
+
+// ── the brief: the manager's own (written on the Mac) when there is one, else the counts ──
+function brief() {
+  const n = todo(dept).length, w = waiting(dept).length, b = feed.board || {}, tail = `${n ? ` <b>${n}</b> need${n === 1 ? 's' : ''} you.` : ' Nothing needs you.'}${w ? ` ${w} waiting on an operator.` : ''}`
+  if (feed.briefs && feed.briefs[dept]) return esc(feed.briefs[dept]).replace(/^([^.!?]+[.!?])/, '<b>$1</b>')
+  if (dept === 'all') { const parts = Object.keys(DEPTS).filter(k => k !== 'all').map(k => [DEPTS[k].tab, todo(k).length]).filter(x => x[1]); return n ? `<b>${n} thing${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} you</b> — ${parts.map(([t, c]) => `${t} ${c}`).join(' · ')}.${w ? ` ${w} waiting on an operator.` : ''}` : `<b>Nothing needs you.</b>${w ? ` ${w} waiting on an operator.` : ''}` }
+  if (dept === 'machines') { const ms = b.machines || [], m3 = ms.reduce((a, m) => a + Number(m.m3 || 0), 0), quiet = ms.filter(m => m.quiet_min); return `<b>${ms.length} machine${ms.length === 1 ? '' : 's'} out, ${Math.round(m3 * 10) / 10} m³ so far.</b> ${ms.filter(m => m.er).length} closed their day.${quiet.length ? ` Quiet: ${quiet.map(m => m.code).join(', ')}.` : ''}${tail}` }
+  if (dept === 'fuel') { const fs = b.fuel || [], rf = fs.reduce((a, f) => a + f.refuels, 0); return `<b>${fs.length} gauge${fs.length === 1 ? '' : 's'} read today, ${rf} refuel${rf === 1 ? '' : 's'}.</b>${tail}` }
+  if (dept === 'money') { const m = b.money || {}; return `<b>KES ${kes(m.out)} out today in ${m.n_out || 0} payment${m.n_out === 1 ? '' : 's'}.</b> KES ${kes(m.proven)} proven by your own word.${m.gaps ? ` ${m.gaps} text${m.gaps === 1 ? '' : 's'} never reached me.` : ''}${tail}` }
+  if (dept === 'business') return `<b>Other business</b> — spending that belongs to no machine: KES ${kes((b.money || {}).business)} today.${tail}`
+  if (dept === 'personal') return `<b>Other personal</b> — kept off the business books: KES ${kes((b.money || {}).personal)} today.${tail}`
+  return `<b>Kit</b> — transfers, items, what stands at the sites.${tail}`
+}
+
+// ── a thing as a card ──
+function buttonsOf(t) {
+  if (t.solved && t.needs) return `<button class="act quiet" data-reopen="${t.key}">Reopen — change the answer</button>`
+  if (t.answer && t.answer.by !== 'owner') return `<button class="act quiet" data-share="${t.r.id}">Forward</button>`
+  let h = ''
+  if (t.buttons) h += t.buttons.map((b, bi) => `<button class="act ${b.answer === 'asked' && !t.asked ? 'yes' : ''}" data-k="${t.key}" data-b="${bi}">${esc(b.label)}</button>`).join('')
+  else {
+    h += t.plain.map((a, i) => `<button class="act ${/^✓/.test(a.label) ? 'yes' : a.action === 'personal' || a.action === 'not_business' || a.action === 'mark' ? 'quiet' : ''}" data-k="${t.key}" data-i="${i}">${esc(a.label)}</button>`).join('')
+    h += (t.r.attach || []).map(c => `<button class="act" data-k="${t.key}" data-cost="${c.cost}">Proves: ${esc(c.label)}</button>`).join('')
+    if (t.needs && !t.plain.length) h += `<button class="act" data-k="${t.key}" data-mark="1">Mark solved</button>`
+  }
+  if (t.answer && !t.needs && !t.buttons) h += `<button class="act quiet" data-reopen="${t.key}">Undo my answer</button>`
+  return h + `<button class="act quiet" data-share="${t.r.id}">Forward</button>`
+}
+function card(t) {
+  const chip = !t.needs ? `<span class="chip info">${KIND[t.r.purpose] || esc(t.r.purpose)}</span>` : t.solved ? '<span class="chip done">✓ Solved</span>' : t.asked ? '<span class="chip info">Asked · waiting</span>' : '<span class="chip need"><span class="dot"></span>Needs you</span>'
+  const d = dept === 'all' && t.dept ? `<span class="chip">${DEPTS[t.dept]?.tab || esc(t.dept)}</span>` : ''
+  return `<article class="item ${t.needs && t.solved ? 'solved' : ''} ${opened.has(t.key) ? 'open' : ''}" data-key="${t.key}" id="m${t.r.id}-${t.item}">
+    <div class="meta">${chip}${d}${t.head ? `<span>${esc(t.head)}</span>` : `<span>${when(t.at)}</span>`}</div>
+    <div class="what">${esc(t.what)}</div>
+    ${t.answer ? `<div class="answer">${esc(t.answer.text)}</div>` : ''}${t.was ? `<div class="was">was: ${esc(t.was)}</div>` : ''}
+    ${t.more ? `<div class="more">${esc(t.more)}</div>` : ''}
+    <div class="acts">${buttonsOf(t)}</div></article>`
+}
+const sumCard = r => {
+  const ms = r.data && r.data.machines
+  if (!ms) return `<section class="item sum" id="m${r.id}-0"><p style="white-space:pre-wrap">${esc(r.body)}</p></section>`
+  return `<section class="item sum" id="m${r.id}-0">${ms.map(m => `<h3>${esc(m.code)} <span>${esc([String(m.who || '').split(',')[0], m.where, 'last ' + m.last].filter(Boolean).join(' · '))}</span></h3><p>${m.trucks ? `${m.trucks} truck${m.trucks === 1 ? '' : 's'}, ${m.m3} m³ · ` : ''}start ${m.sr ? '✓' : '–'} · end ${m.er ? '✓' : '–'}</p>${(m.lines || []).length ? m.lines.map(l => `<p class="w">${esc(l)}</p>`).join('') : ''}`).join('')}</section>`
+}
+// everything, as it came: newest first; the received lines gathered into quiet blocks
+function everything() {
+  const byRow = new Map(); for (const t of things) { if (!byRow.has(t.r.id)) byRow.set(t.r.id, []); byRow.get(t.r.id).push(t) }
+  let html = '', run = []
+  const flush = () => { if (run.length) { html += `<div class="rows">${run.map(r => `<div class="row" id="m${r.id}-0"><time>${hm(r.created_at)}</time><span class="txt">${esc(String(r.body).replace(/^📥\s*/u, ''))}</span></div>`).join('')}</div>`; run = [] } }
+  for (const r of feed.rows) {
+    if (dept !== 'all' && r.department !== dept) continue
+    if (r.purpose === 'receipt') { run.push(r); continue }
+    flush()
+    if (r.purpose === 'summary') { html += `<div class="group"><span>Summary · ${hm(r.created_at)}</span><span>by machine</span></div>` + sumCard(r); continue }
+    html += (byRow.get(r.id) || []).map(card).join('')
+  }
+  flush()
+  return html
+}
+function boards(f) {
+  const b = feed.board || {}
+  if (dept === 'money' && f !== 'solved' && b.money) { const m = b.money; return `<section class="item"><div class="totals"><div><div class="k">Out today</div><div class="v">${kes(m.out)}</div></div><div><div class="k">Proven</div><div class="v">${kes(m.proven)}</div></div><div><div class="k">No purpose yet</div><div class="v">${kes(m.waiting)}</div></div></div><div class="facts"><span>in <b>${kes(m.in)}</b></span><span>other business <b>${kes(m.business)}</b></span><span>personal <b>${kes(m.personal)}</b></span>${m.gaps ? `<span>texts missing <b>${m.gaps}</b></span>` : ''}</div></section>` }
+  return ''
+}
+function boardsBelow(f) {
+  const b = feed.board || {}
+  if (dept === 'machines' && f !== 'solved' && (b.machines || []).length) return `<div class="group"><span>Today's machines</span><span>${b.machines.length}</span></div>` + b.machines.map(m => {
+    const eng = m.engine && m.engine.end != null ? Math.round((m.engine.end - m.engine.start) * 10) / 10 : null, q = m.quiet_min
+    return `<section class="item"><div class="mach"><div class="code">${esc(m.code)}</div><div><div class="who">${esc(m.who || '')}</div><div class="where">${esc([m.area, m.site].filter(Boolean).join(' · '))}</div></div><div class="vol">${m.m3} m³<small>${m.trucks} truck${m.trucks === 1 ? '' : 's'}</small></div>
+      <div class="steps"><span class="chip ${m.sr ? 'done' : ''}">${m.sr ? '✓' : '–'} Start</span><span class="chip ${m.er ? 'done' : ''}">${m.er ? '✓' : '–'} End</span><span class="chip">last ${m.last}</span>${q ? `<span class="chip need"><span class="dot"></span>quiet ${Math.floor(q / 60)} h ${q % 60} min</span>` : ''}${eng != null ? `<span class="chip">engine ${eng} h${m.span ? ` · pumping ${m.span.hours} h` : ''}</span>` : m.span ? `<span class="chip">pumping ${m.span.hours} h</span>` : ''}${m.issues ? `<span class="chip need"><span class="dot"></span>${m.issues} issue${m.issues > 1 ? 's' : ''}</span>` : ''}</div></div></section>` }).join('')
+  if (dept === 'fuel' && f !== 'solved' && (b.fuel || []).length) return `<div class="group"><span>Levels today</span><span>red line 0 · blue line 100</span></div>` + b.fuel.map(x => {
+    const clamp = v => Math.max(0, Math.min(100, v)), last = x.marks[x.marks.length - 1], first = x.marks[0]
+    const used = x.marks.reduce((a, m, i) => i && m.pct < x.marks[i - 1].pct ? a + (x.marks[i - 1].pct - m.pct) : a, 0)
+    return `<section class="item"><div class="fuel-top"><span class="code">${esc(x.code)}</span><span class="what">${last.pct}%</span></div>
+      <div class="gauge"><div class="fill" style="width:${clamp(last.pct)}%"></div>${x.marks.map(m => `<span class="tick" style="left:calc(${clamp(m.pct)}% - 1px)"></span>`).join('')}<span class="lab" style="left:${Math.max(6, Math.min(94, last.pct))}%">${last.hm}</span></div>
+      <div class="facts"><span>first <b>${first.pct}% · ${first.hm}</b></span><span>photos <b>${x.marks.length}</b></span><span>refuels <b>${x.refuels}${x.rise ? ` · +${x.rise} pts` : ''}</b></span><span>went down <b>${used} pts${x.litres_per_gauge ? ` ≈ ${Math.round(used * x.litres_per_gauge / 100)} L` : ''}</b></span></div></section>` }).join('')
+  return ''
+}
+function render() {
+  const f = filters[dept] || 'pending', p = todo(dept), w = waiting(dept), s = solved(dept)
+  $('title').textContent = DEPTS[dept].title
+  $('date').textContent = new Date(feed.now || Date.now()).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hm(feed.now || Date.now())
+  $('brief').innerHTML = brief()
+  $('n-p').textContent = p.length || ''; $('n-s').textContent = s.length || ''
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.f === f)))
+  let html = boards(f)
+  if (f === 'pending') html += (p.length ? p.map(card).join('') : `<p class="empty">Nothing needs you here.</p>`) + (w.length ? `<div class="group"><span>Waiting on an operator</span><span>${w.length}</span></div>` + w.map(card).join('') : '')
+  else if (f === 'solved') html += s.length ? s.map(card).join('') : `<p class="empty">Nothing solved yet today.</p>`
+  else html += everything() || `<p class="empty">Nothing yet today.</p>`
+  html += boardsBelow(f)
+  const y = window.scrollY
+  main.innerHTML = html
+  window.scrollTo({ top: y })
+  $('nav').innerHTML = Object.entries(DEPTS).map(([k, d]) => { const n = todo(k).length; return `<button class="tab" data-d="${k}" ${k === dept ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span>${d.tab}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>` }).join('')
+  $('ask').setAttribute('aria-label', dept === 'all' ? 'Ask about today' : `Ask the ${DEPTS[dept].tab} manager`)
+}
+function focusMsg(id) { dept = 'all'; filters.all = 'all'; render(); const el = document.querySelector(`[id^="m${id}-"]`); if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 2500) } }
+
+// ── answering ──
+async function say(body, quiet) {
+  busy = true
   try {
     const { status, data } = await api('reply', { body })
-    if (status !== 200) { toast(data.error || 'The bot did not take it — try again.'); render(); return false }
-    if (forId) answers[forId] = data.reply; toast(data.reply); await load(); return true
-  } catch { toast('No connection — try again.'); render(); return false }
+    if (status !== 200) { toast(data.error || 'The bot did not take it — try again.'); return false }
+    if (!quiet) toast(data.reply || '✓'); await load(); return true
+  } catch { toast('No connection — try again.'); return false } finally { busy = false }
 }
+document.addEventListener('click', async e => {
+  const b = e.target.closest('button'), art = e.target.closest('.item.solved')
+  if (b?.dataset.d) { dept = b.dataset.d; window.scrollTo({ top: 0 }); return render() }
+  if (b?.dataset.f) { filters[dept] = b.dataset.f; window.scrollTo({ top: 0 }); return render() }
+  if (b?.dataset.share) { const r = feed.rows.find(x => String(x.id) === b.dataset.share); if (r) { if (navigator.share) navigator.share({ text: r.body }).catch(() => {}); else { await navigator.clipboard.writeText(r.body); toast('Copied') } } return }
+  if (b?.dataset.reopen) { const t = things.find(x => x.key === b.dataset.reopen); if (!t) return; b.disabled = true; opened.delete(t.key); await say({ action: 'reopen', id: t.r.id, item: t.item }); return }
+  if (b?.dataset.k) {
+    const t = things.find(x => x.key === b.dataset.k); if (!t) return
+    const at = { id: t.r.id, item: t.item }
+    if (b.dataset.mark) { b.disabled = true; return say({ action: 'mark', ...at }) }
+    if (b.dataset.cost) { b.disabled = true; return say({ action: 'attach', ...at, receipt: t.r.data?.receipt, cost: Number(b.dataset.cost) }) }
+    if (b.dataset.b !== undefined) {   // a button under one issue of an alert
+      const a = t.buttons[Number(b.dataset.b)]; if (!a) return
+      if (a.share) { if (navigator.share) { try { await navigator.share({ text: a.share }) } catch { return } } else { await navigator.clipboard.writeText(a.share); toast('Copied — paste it in his group') } }
+      b.disabled = true
+      return say({ action: 'issue', machine: a.machine, day: a.day, fp: a.fp, answer: a.answer, issue: t.what, ...at })
+    }
+    const a = t.plain[Number(b.dataset.i)]; if (!a) return
+    if (a.compose) return openSheet({ ...a.compose, ...at })
+    b.disabled = true
+    return say(a.action ? { ...a, ...at } : { text: a.text, receipt: a.receipt, ...at })
+  }
+  if (art && !b) { const k = art.dataset.key; opened.has(k) ? opened.delete(k) : opened.add(k); art.classList.toggle('open') }
+})
 
-// ── the composer: machine + kind + amount (+ who), or free text ──
-function chips(el, items, get, set) { el.innerHTML = items.map(x => `<button class="chip" aria-pressed="${get() === x}" data-v="${esc(x)}">${esc(x)}</button>`).join(''); el.onclick = e => { const c = e.target.closest('.chip'); if (!c) return; set(get() === c.dataset.v ? null : c.dataset.v); chips(el, items, get, set); preview() } }
+// ── the sheet: say a cost (machine + kind + amount, or free text) · what a payment was · paste an M-Pesa text · ask the manager ──
+function picks(el, items, get, set) { el.innerHTML = items.map(x => `<button class="pick" aria-pressed="${get() === x}" data-v="${esc(x)}">${esc(x)}</button>`).join(''); el.onclick = e => { const c = e.target.closest('.pick'); if (!c) return; set(get() === c.dataset.v ? null : c.dataset.v); picks(el, items, get, set); preview() } }
 function composed() {
+  if (compose.mode !== 'cost') return $('long').value.trim()
   const free = $('free').value.trim(); if (free) return free
   const k = KINDS.find(x => x[0] === compose.kind); const amt = $('amount').value.replace(/[^\d.]/g, ''); const who = $('who').value.trim()
   if (!k || !amt) return ''
   return [k[2] ? compose.machine : null, k[1], Number(amt).toLocaleString('en-US'), who ? `for ${who}` : null].filter(Boolean).join(' ')
 }
-function preview() { const t = composed(); $('preview').textContent = t || 'Pick a kind and an amount.'; $('send').disabled = !t }
+function preview() { const t = composed(); $('preview').textContent = t || 'Pick a kind and an amount.'; $('send').disabled = !t && compose.mode !== 'business' }
 function openSheet(pre = {}) {
-  compose = { machine: pre.machine || null, kind: null, receipt: pre.receipt || null }
-  $('amount').value = pre.amount ? Number(pre.amount).toLocaleString('en-US') : ''; $('who').value = ''; $('free').value = ''
-  $('sheet-title').textContent = pre.receipt ? 'What was this payment for?' : 'Say a cost'
-  $('sheet-hint').textContent = pre.receipt ? `M-Pesa ${pre.receipt} · KES ${Number(pre.amount).toLocaleString('en-US')} — your answer is attached to this receipt.` : 'Pick the machine and the kind; the bot reads it as if you had dictated it.'
-  chips($('machines'), machines, () => compose.machine, v => compose.machine = v)
-  chips($('kinds'), KINDS.map(k => k[0]), () => compose.kind, v => compose.kind = v)
+  const mode = pre.ask ? 'ask' : pre.paste ? 'paste' : pre.bucket === 'business' ? 'business' : 'cost'
+  compose = { mode, machine: pre.machine || null, kind: null, receipt: pre.receipt || null, id: pre.id || null, item: pre.item || 0 }
+  $('amount').value = pre.amount ? Number(pre.amount).toLocaleString('en-US') : ''; $('who').value = ''; $('free').value = ''; $('long').value = ''
+  $('cost-fields').hidden = mode !== 'cost'; $('text-fields').hidden = mode === 'cost'; $('qa').hidden = mode !== 'ask'
+  const amt = pre.amount ? `KES ${Number(pre.amount).toLocaleString('en-US')}` : ''
+  if (mode === 'cost') {
+    $('sheet-title').textContent = pre.receipt ? 'What was this payment for?' : 'Say a cost'
+    $('sheet-hint').textContent = pre.receipt ? `M-Pesa ${pre.receipt} · ${amt} — your answer is attached to this receipt.` : 'Pick the machine and the kind; the bot reads it as if you had dictated it.'
+    picks($('machines'), feed.machines || [], () => compose.machine, v => compose.machine = v)
+    picks($('kinds'), KINDS.map(k => k[0]), () => compose.kind, v => compose.kind = v)
+  } else if (mode === 'business') {
+    $('sheet-title').textContent = 'Other business — what was it?'
+    $('sheet-hint').textContent = `M-Pesa ${pre.receipt} · ${amt} — filed under Other (Business), off the machines' books. A word on what it was helps later (rent, licence…).`
+    $('long').placeholder = 'Rent for the yard'
+  } else if (mode === 'paste') {
+    $('sheet-title').textContent = 'Paste the M-Pesa text'
+    $('sheet-hint').textContent = 'Copy the whole message from Messages (from the receipt code) and paste it here. Several at once is fine.'
+    $('long').placeholder = 'UJ1DA8XXXX Confirmed. Ksh200.00 sent to …'
+  } else {
+    $('sheet-title').textContent = dept === 'all' ? 'Ask about today' : `Ask the ${DEPTS[dept].tab.toLowerCase()} manager`
+    $('sheet-hint').textContent = 'It reads this department\'s week from the bot\'s own records and answers in a minute or two — here and as a notification.'
+    $('long').placeholder = dept === 'fuel' ? 'Which machine went down most overnight this week?' : dept === 'money' ? 'What did I spend on fuel today, by machine?' : 'What is still open from today?'
+    thread()
+  }
   preview(); $('sheet').showModal()
 }
+function thread() { const qs = (feed.questions || []).filter(q => q.department === dept); $('qa').innerHTML = qs.map(q => `<div><div class="q">${esc(q.question)}</div><div class="a ${q.status === 'asked' ? 'wait' : ''}">${q.status === 'asked' ? 'Thinking…' : esc(q.answer || 'No answer — ask again.')}</div></div>`).join('') }
+// the header folds once the page is well scrolled and opens again only near the top (the fold itself moves the page: no flicker)
+addEventListener('scroll', () => { const c = document.body.classList; if (!c.contains('scrolled') && scrollY > 140) c.add('scrolled'); else if (c.contains('scrolled') && scrollY < 16) c.remove('scrolled') }, { passive: true })
 $('fab').onclick = () => openSheet()
+$('ask').onclick = () => openSheet({ ask: true })
 $('cancel').onclick = () => $('sheet').close()
-for (const id of ['amount', 'who', 'free']) $(id).oninput = preview
-$('send').onclick = async () => { const text = composed(); if (!text) return; $('send').disabled = true; if (await say({ text, receipt: compose.receipt })) $('sheet').close(); $('send').disabled = false }
-$('tab-main').onclick = () => { showAll = false; $('tab-main').setAttribute('aria-pressed', 'true'); $('tab-all').setAttribute('aria-pressed', 'false'); render() }
-$('tab-all').onclick = () => { showAll = true; $('tab-all').setAttribute('aria-pressed', 'true'); $('tab-main').setAttribute('aria-pressed', 'false'); render() }
+for (const id of ['amount', 'who', 'free', 'long']) $(id).oninput = preview
+$('send').onclick = async () => {
+  const text = composed(), at = compose.id ? { id: compose.id, item: compose.item } : {}
+  if (!text && compose.mode !== 'business') return
+  $('send').disabled = true
+  const ok = compose.mode === 'business' ? await say({ action: 'business', receipt: compose.receipt, note: text, ...at })
+    : compose.mode === 'ask' ? await say({ action: 'ask', department: dept, question: text })
+    : await say({ text, receipt: compose.receipt, ...at })
+  if (ok) { if (compose.mode === 'ask') { $('long').value = ''; thread() } else $('sheet').close() }
+  $('send').disabled = false
+}
 start()
 </script>
 </body>
