@@ -40,6 +40,7 @@
   .kind.mpesa { background: var(--primary-deep); color: var(--primary-ink); }
   .kind.alert { background: var(--warning-deep); color: var(--warning); }
   .kind.summary { background: var(--info-deep); color: var(--info); }
+  .kind.fuel { background: var(--warning-deep); color: var(--warning); }
   .text { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--strong); }
   .text b { color: var(--ink); font-weight: 600; }
   .msg.receipt { padding: 8px 14px; }
@@ -160,7 +161,7 @@ function feed() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load() })
 }
 const when = iso => { const d = new Date(iso), t = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); return d.toDateString() === new Date().toDateString() ? t : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + t }
-const LABEL = { mpesa: 'Payment', alert: 'Alert', summary: 'Summary', reply: 'Bot', receipt: 'Received' }
+const LABEL = { mpesa: 'Payment', alert: 'Alert', summary: 'Summary', reply: 'Bot', receipt: 'Received', fuel: 'Fuel' }
 function render() {
   const list = rows.filter(r => showAll || r.purpose !== 'receipt')
   if (!list.length) { main.innerHTML = '<p class="empty">Nothing yet today.</p>'; return }
@@ -194,7 +195,7 @@ main.addEventListener('click', async e => {
   const a = r?.actions?.[Number(b.dataset.i)]; if (!a) return
   if (a.compose) return openSheet(a.compose)
   b.disabled = true
-  await say(a.action ? { action: a.action, receipt: a.receipt } : { text: a.text, receipt: a.receipt }, r.id)
+  await say(a.action ? { ...a } : { text: a.text, receipt: a.receipt }, r.id)
 })
 async function say(body, forId) {
   try {
