@@ -178,6 +178,7 @@
   .hint { font-size: 13px; color: var(--body); margin: 0 0 12px; }
   .label { font-size: 12.5px; font-weight: 500; color: var(--body); margin: 14px 0 6px; }
   .picks { display: flex; flex-wrap: wrap; gap: 6px; }
+  .pick small { font-size: 11.5px; color: var(--body); }
   .pick { font-size: 14px; min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--edge); background: transparent; color: var(--strong); }
   .pick[aria-pressed="true"] { background: var(--ok-bg); border-color: var(--primary); color: var(--primary-ink); }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -271,6 +272,7 @@
       <div><div class="label">From</div><input id="from" autocomplete="off" placeholder="China Mall"></div>
       <div><div class="label">To</div><input id="to" autocomplete="off" placeholder="Brookside One"></div>
     </div>
+    <div class="picks" id="places" style="margin-top:8px" hidden></div>
     <div class="label">Or type it yourself</div><input id="free" autocomplete="off" placeholder="Supper 200 each for Brian and Isaiah on A5">
     <div class="preview" id="preview" aria-live="polite"></div>
   </div>
@@ -833,10 +835,23 @@ function composed() {
 const dayWords = () => { const d = lastDays().find(x => x.iso === compose.day); return d && d.label !== 'Today' ? ` · ${d.label}${compose.shift === 'night' ? ' (night)' : ''}` : compose.shift === 'night' ? ' · tonight' : '' }
 // a move between sites has a from and a to ("it would help if selecting between sites spawned from and to boxes")
 const routeWords = () => { const f = $('from').value.trim(), t = $('to').value.trim(); return compose.kind === 'Between sites' && (f || t) ? ` · ${f || '?'} → ${t || '?'}` : '' }
+// the places for From and To (the owner, 2 Oct 2026: "options similar to how the staff names show, showing all the active sites today
+// plus any planned job sites for the next day"): the first tap fills From, the next fills To; a tap on a chosen one clears it
+const placeName = p => (feed.places || []).filter(x => x.site.toLowerCase() === p.site.toLowerCase()).length > 1 && p.area ? `${p.site} (${p.area})` : p.site
+function places() {
+  const el = $('places'), ps = feed.places || [], on = compose.kind === 'Between sites' && ps.length > 0
+  el.hidden = !on; if (!on) return
+  const f = $('from').value.trim(), t = $('to').value.trim()
+  el.innerHTML = ps.map(p => { const n = placeName(p), tag = n === f ? 'from' : n === t ? 'to' : p.when === 'tomorrow' ? 'tomorrow' : ''; return `<button class="pick" aria-pressed="${n === f || n === t}" data-v="${esc(n)}">${esc(n)}${tag ? `<small> · ${tag}</small>` : ''}</button>` }).join('')
+  el.onclick = e => { const c = e.target.closest('.pick'); if (!c) return; const v = c.dataset.v, F = $('from'), T = $('to')
+    if (F.value.trim() === v) F.value = ''; else if (T.value.trim() === v) T.value = ''; else if (!F.value.trim()) F.value = v; else T.value = v
+    preview() }
+}
 function preview() {
   if (compose.mode === 'owed') { $('send').disabled = !compose.code; return }
   $('route').hidden = compose.kind !== 'Between sites'
   $('who-label').textContent = compose.kind === 'Between sites' ? 'Who — all who shared it' : 'Who (optional)'
+  places()
   const t = composed(); $('preview').textContent = t ? t + routeWords() + dayWords() : 'Pick a kind and an amount.'; $('send').disabled = !t && compose.mode !== 'business'
 }
 // the men on the chosen machine's registers of the chosen day — the payment's payee first when he is one of them
