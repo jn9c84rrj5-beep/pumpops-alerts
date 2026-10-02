@@ -13,7 +13,7 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" href="icon-192.png">
 <style>
-  /* THE BOT'S PAGE (W18, 1 Oct 2026): departments along the bottom, needs-you / solved / everything, liquid glass. No data lives here. */
+  /* THE BOT'S PAGE (W18, 1 Oct 2026): departments along the bottom, needs-you / investigating / solved / everything, liquid glass. No data lives here. */
   /* DARK ALWAYS (the owner, 1 Oct 2026: "dark mode always!!") — there is no light theme, whatever the phone is set to. */
   :root {
     color-scheme: dark;
@@ -22,7 +22,7 @@
     --glass: rgba(22, 30, 44, .58); --glass-strong: rgba(18, 25, 38, .78); --card: rgba(20, 28, 42, .72); --solid: #121a27;
     --edge: rgba(255, 255, 255, .13); --edge-top: rgba(255, 255, 255, .30); --shadow: 0 10px 34px rgba(0, 0, 0, .42);
     --primary: #22c55e; --primary-ink: #86efac; --primary-on: #04210f;
-    --warn: #fbbf24; --warn-bg: rgba(251, 191, 36, .16); --danger: #fca5a5; --info: #93c5fd; --info-bg: rgba(96, 165, 250, .16);
+    --warn: #fbbf24; --warn-bg: rgba(251, 191, 36, .16); --danger: #fca5a5; --info: #93c5fd; --info-on: #06203f; --info-bg: rgba(96, 165, 250, .16);
     --ok-bg: rgba(34, 197, 94, .16); --track: rgba(255, 255, 255, .10); --badge: #fbbf24; --badge-on: #1c1203;
     --z-bar: 20; --z-sheet: 40; --z-toast: 50;
   }
@@ -74,13 +74,14 @@
   .ask { white-space: nowrap; min-height: 34px; padding: 0 12px; border-radius: 999px; border: 1px solid var(--edge); background: var(--glass-strong); color: var(--ink); font-size: 13px; font-weight: 600; box-shadow: inset 0 1px 0 var(--edge-top); }
   .brief { margin: 8px 0 0; color: var(--strong); font-size: 14.5px; text-wrap: pretty; }
   .brief b { color: var(--ink); font-weight: 600; }
-  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 12px; padding: 4px; border-radius: 14px; background: var(--track); }
-  .seg button { border: 0; background: transparent; min-height: 36px; border-radius: 10px; font-size: 13px; font-weight: 500; white-space: nowrap; padding: 0 6px; color: var(--body); transition: background .18s ease-out, color .18s ease-out; }
+  .seg { display: flex; gap: 2px; margin: 12px -4px 0; padding: 3px; border-radius: 14px; background: var(--track); }
+  .seg button { flex: 1 1 auto; border: 0; background: transparent; min-height: 36px; border-radius: 10px; font-size: 12px; font-weight: 500; white-space: nowrap; padding: 0 3px; color: var(--body); transition: background .18s ease-out, color .18s ease-out; }
   .seg button[aria-pressed="true"] { background: var(--glass-strong); color: var(--ink); box-shadow: inset 0 1px 0 var(--edge-top), 0 1px 6px rgba(0,0,0,.18); }
   /* the counts as bubbles (the owner, 2 Oct 2026: "make the bubble for needs you amber and the one for solved green") */
-  .seg .n { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 6px; border-radius: 999px; font-size: 11.5px; font-weight: 700; font-variant-numeric: tabular-nums; vertical-align: 1px; }
+  .seg .n { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; margin-left: 3px; border-radius: 999px; font-size: 10.5px; font-weight: 700; font-variant-numeric: tabular-nums; vertical-align: 1px; }
   .seg .n:empty { display: none; }
   #n-p { background: var(--badge); color: var(--badge-on); }
+  #n-i { background: var(--info); color: var(--info-on); }
   #n-s { background: var(--primary); color: var(--primary-on); }
   .chip.need { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 45%, transparent); }
   .chip.done { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent); }
@@ -107,6 +108,14 @@
   :is(.act, .seg button, .tab, .ask, .big, input, textarea, .pick):focus-visible { outline: 2px solid var(--primary-ink); outline-offset: 2px; }
   .answer { margin-top: 4px; font-size: 13.5px; color: var(--primary-ink); overflow-wrap: anywhere; }
   .was { margin-top: 4px; font-size: 13.5px; color: var(--body); overflow-wrap: anywhere; }
+  /* the private exchange with the man he asked (W29): his own lines to the right, the man's to the left */
+  .thread { margin-top: 8px; display: grid; gap: 5px; }
+  .thread .note { font-size: 12.5px; color: var(--body); }
+  .thread .ln { max-width: 88%; padding: 7px 10px; border-radius: 12px; font-size: 13.5px; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere; background: var(--track); color: var(--strong); justify-self: start; }
+  .thread .ln.me { justify-self: end; background: var(--ok-bg); color: var(--ink); }
+  .thread .ln time { display: block; margin-top: 2px; font-size: 11px; color: var(--body); }
+  .item.solved .thread { display: none; }
+  .item.solved.open .thread { display: grid; }
 
   /* solved: one quiet line, the answer kept; tap to open */
   .item.solved { padding: 10px 14px; background: color-mix(in srgb, var(--card) 55%, transparent); box-shadow: none; cursor: pointer; }
@@ -235,8 +244,9 @@
   <p class="brief" id="brief"></p>
   <div class="seg" role="group" aria-label="Show">
     <button data-f="pending" aria-pressed="true">Needs you<span class="n" id="n-p"></span></button>
+    <button data-f="asked" aria-pressed="false">Investigating<span class="n" id="n-i"></span></button>
     <button data-f="solved" aria-pressed="false">Solved<span class="n" id="n-s"></span></button>
-    <button data-f="all" aria-pressed="false">Everything</button>
+    <button data-f="all" aria-pressed="false">All</button>
   </div>
   <div class="calnav" id="calnav" hidden><button class="arrow" id="cal-prev" aria-label="The month before">‹</button><button class="month" id="cal-month"></button><button class="arrow" id="cal-next" aria-label="The month after">›</button><button class="ask" id="cal-today">Today</button></div>
 </div></header>
@@ -254,7 +264,7 @@
     <div class="label">Kind</div><div class="picks" id="kinds"></div>
     <div class="two">
       <div><div class="label">Amount (KES)</div><input id="amount" inputmode="numeric" autocomplete="off" placeholder="7,623"></div>
-      <div><div class="label">Who (optional)</div><input id="who" autocomplete="off" placeholder="Brian"></div>
+      <div><div class="label" id="who-label">Who (optional)</div><input id="who" autocomplete="off" placeholder="Brian"></div>
     </div>
     <div class="picks" id="crew" style="margin-top:8px"></div>
     <div class="two" id="route" hidden>
@@ -296,7 +306,7 @@ const standalone = window.navigator.standalone === true || matchMedia('(display-
 let feed = { rows: [], answers: [], board: { machines: [], fuel: [], money: {} }, briefs: null, questions: [], machines: ['A', 'A2', 'A3', 'A4', 'A5', 'S', 'TRK'] }
 let things = [], dept = 'all', timer = null, busy = false
 const filters = { all: 'all' }, opened = new Set()
-let compose = { mode: 'cost', machine: null, kind: null, receipt: null, id: null, item: 0, day: null, shift: 'day', who: null }
+let compose = { mode: 'cost', machine: null, kind: null, receipt: null, id: null, item: 0, day: null, shift: 'day', who: [] }
 const crews = {}   // machine|day → the men on its registers, fetched once
 // the last five days, today first (the owner, 2 Oct 2026: "above machines there should be dates, showing the last 5 calendar dates, two
 // options per date: one for the day shift and one for the night")
@@ -306,7 +316,7 @@ const kes = n => Number(n || 0).toLocaleString('en-US')
 const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 5000) }
 const key = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)) }
 const api = async (task, opts = {}) => {
-  if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : task.startsWith('calendar') ? window.FIXTURE_CAL : task === 'lists' ? window.FIXTURE_LISTS : task.startsWith('proposals') ? (window.FIXTURE_PROPOSALS || {}) : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
+  if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : task.startsWith('calendar') ? window.FIXTURE_CAL : task === 'lists' ? window.FIXTURE_LISTS : task.startsWith('proposals') ? (window.FIXTURE_PROPOSALS || {}) : task.startsWith('crew') ? (window.FIXTURE_CREW || { names: [] }) : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
   const r = await fetch(`${FN}?task=${task}`, { method: opts.body ? 'POST' : 'GET', headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(store.token ? { 'x-device-token': store.token } : {}) }, body: opts.body ? JSON.stringify(opts.body) : undefined })
   return { status: r.status, data: await r.json().catch(() => ({})) }
 }
@@ -365,6 +375,7 @@ function show() {
 function derive() {
   const live = new Map(), was = new Map()
   for (const a of feed.answers || []) { const k = a.outbox_id + ':' + a.item; if (a.withdrawn_at) was.set(k, a); else live.set(k, a) }
+  const priv = new Map((feed.private || []).map(p => [p.outbox_id + ':' + p.item, p]))   // the newest watch of a thing wins
   things = []
   for (const r of feed.rows) {
     if (r.purpose === 'receipt' || r.purpose === 'summary') continue
@@ -379,7 +390,7 @@ function derive() {
       const nb = plain.findIndex(a => a.action === 'not_business'); if (nb >= 0) plain.splice(nb, 1)
       if (!plain.some(a => a.action === 'personal')) plain.push({ label: 'Personal', action: 'personal', receipt: rc })
     }
-    const add = (item, extra) => { const k = r.id + ':' + item, a = live.get(k); things.push({ key: k, r, item, dept: r.department, at: r.created_at, answer: a || null, solved: !!(a && a.final), asked: !!(a && !a.final), was: !a && was.get(k) ? was.get(k).text : null, needs: r.needs_owner, ...extra }) }
+    const add = (item, extra) => { const k = r.id + ':' + item, a = live.get(k); const pv = priv.get(k) || null; things.push({ key: k, r, item, dept: r.department, at: r.created_at, priv: pv, replied: !!(pv && pv.messages.some(m => !m.me)), answer: a || null, solved: !!(a && a.final), asked: !!(a && !a.final), was: !a && was.get(k) ? was.get(k).text : null, needs: r.needs_owner, ...extra }) }
     if (groups.length) groups.forEach((g, gi) => add(gi, { head: first.replace(/^[^\w]+/u, ''), what: g.issue, more: '', buttons: g.buttons, plain: [] }))
     else add(0, { head: '', what: first, more: rest.join('\n'), buttons: null, plain })
   }
@@ -395,9 +406,9 @@ const when = iso => { const d = new Date(iso); return d.toDateString() === new D
 
 // ── the brief: the manager's own (written on the Mac) when there is one, else the counts ──
 function brief() {
-  const n = todo(dept).length, w = waiting(dept).length, b = feed.board || {}, tail = `${n ? ` <b>${n}</b> need${n === 1 ? 's' : ''} you.` : ' Nothing needs you.'}${w ? ` ${w} waiting on an operator.` : ''}`
+  const n = todo(dept).length, w = waiting(dept).length, b = feed.board || {}, tail = `${n ? ` <b>${n}</b> need${n === 1 ? 's' : ''} you.` : ' Nothing needs you.'}${w ? ` ${w} being investigated.` : ''}`
   if (feed.briefs && feed.briefs[dept]) return esc(feed.briefs[dept]).replace(/^([^.!?]+[.!?])/, '<b>$1</b>') + tail   // the manager's words, then the live count
-  if (dept === 'all') { const parts = Object.keys(DEPTS).filter(k => k !== 'all').map(k => [DEPTS[k].tab, todo(k).length]).filter(x => x[1]); return n ? `<b>${n} thing${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} you</b> — ${parts.map(([t, c]) => `${t} ${c}`).join(' · ')}.${w ? ` ${w} waiting on an operator.` : ''}` : `<b>Nothing needs you.</b>${w ? ` ${w} waiting on an operator.` : ''}` }
+  if (dept === 'all') { const parts = Object.keys(DEPTS).filter(k => k !== 'all').map(k => [DEPTS[k].tab, todo(k).length]).filter(x => x[1]); return n ? `<b>${n} thing${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} you</b> — ${parts.map(([t, c]) => `${t} ${c}`).join(' · ')}.${w ? ` ${w} being investigated.` : ''}` : `<b>Nothing needs you.</b>${w ? ` ${w} being investigated.` : ''}` }
   if (dept === 'machines') { const ms = b.machines || [], m3 = ms.reduce((a, m) => a + Number(m.m3 || 0), 0), quiet = ms.filter(m => m.quiet_min); return `<b>${ms.length} machine${ms.length === 1 ? '' : 's'} out, ${Math.round(m3 * 10) / 10} m³ so far.</b> ${ms.filter(m => m.er).length} closed their day.${quiet.length ? ` Quiet: ${quiet.map(m => m.code).join(', ')}.` : ''}${tail}` }
   if (dept === 'fuel') { const fs = b.fuel || [], rf = fs.reduce((a, f) => a + f.refuels, 0); return `<b>${fs.length} gauge${fs.length === 1 ? '' : 's'} read today, ${rf} refuel${rf === 1 ? '' : 's'}.</b>${tail}` }
   if (dept === 'money') { const m = b.money || {}; return `<b>KES ${kes(m.out)} out today in ${m.n_out || 0} payment${m.n_out === 1 ? '' : 's'}.</b> KES ${kes(m.proven)} proven by your own word.${m.gaps ? ` ${m.gaps} text${m.gaps === 1 ? '' : 's'} never reached me.` : ''}${(feed.owed || []).length ? ` KES ${kes((feed.owed || []).reduce((a, o) => a + Number(o.amount_ksh), 0))} owed on the registers.` : ''}${tail}` }
@@ -421,14 +432,23 @@ function buttonsOf(t) {
   return h + `<button class="act quiet" data-share="${t.r.id}">Forward</button>`
 }
 function card(t) {
-  const chip = !t.needs ? `<span class="chip info">${KIND[t.r.purpose] || esc(t.r.purpose)}</span>` : t.solved ? '<span class="chip done">✓ Solved</span>' : t.asked ? '<span class="chip info">Asked · waiting</span>' : '<span class="chip need"><span class="dot"></span>Needs you</span>'
+  const chip = !t.needs ? `<span class="chip info">${KIND[t.r.purpose] || esc(t.r.purpose)}</span>` : t.solved ? '<span class="chip done">✓ Solved</span>' : t.asked ? `<span class="chip info">Investigating</span>${t.replied ? '<span class="chip need"><span class="dot"></span>He replied</span>' : ''}` : '<span class="chip need"><span class="dot"></span>Needs you</span>'
   const d = dept === 'all' && t.dept ? `<span class="chip">${DEPTS[t.dept]?.tab || esc(t.dept)}</span>` : ''
   return `<article class="item ${t.needs && t.solved ? 'solved' : ''} ${opened.has(t.key) ? 'open' : ''}" data-key="${t.key}" id="m${t.r.id}-${t.item}">
     <div class="meta">${chip}${d}${t.head ? `<span>${esc(t.head)}</span>` : `<span>${when(t.at)}</span>`}</div>
     <div class="what">${esc(t.what)}</div>
     ${t.answer ? `<div class="answer">${esc(t.answer.text)}</div>` : ''}${t.was ? `<div class="was">was: ${esc(t.was)}</div>` : ''}
-    ${t.more ? `<div class="more">${esc(t.more)}</div>` : ''}
+    ${t.more ? `<div class="more">${esc(t.more)}</div>` : ''}${threadHtml(t)}
     <div class="acts">${buttonsOf(t)}</div></article>`
+}
+// the private exchange with the man he asked (W29): read on the Mac from his chat with that man, from the tap until the thing is answered
+function threadHtml(t) {
+  const p = t.priv; if (!p) return ''
+  const first = String(p.name).replace(/^\d/, '').split(' ')[0]
+  const note = p.chat_found === false ? `I can't find ${esc(first)}'s private chat on the Mac — his contact there has to carry his full name.`
+    : !p.messages.length ? (p.chat_found == null ? `Watching your private chat with ${esc(first)} — the Mac looks every minute.` : `Nothing in your private chat with ${esc(first)} since you asked.`)
+    : `Your private chat with ${esc(first)}, since you asked${p.open ? '' : ' (closed)'}`
+  return `<div class="thread"><div class="note">${note}</div>${p.messages.map(m => `<div class="ln ${m.me ? 'me' : ''}">${m.text ? esc(m.text) : `<i>${m.type === 'image' ? 'a photo' : m.type === 'audio' ? 'a voice note' : esc('a ' + m.type)}</i>`}<time>${m.me ? 'You' : esc(first)} · ${when(m.at)}</time></div>`).join('')}</div>`
 }
 const sumCard = r => {
   const ms = r.data && r.data.machines
@@ -473,19 +493,20 @@ function owedHtml() {
       <div class="was">${n ? `${n} picked` : 'for all of them — or tap names to pick some'}</div></section>` }
   return part('Owed to staff — allowances on the registers', c => allow.has(c)) + part('Works the registers say were paid for', c => !allow.has(c))
 }
+const showsBoards = f => f !== 'solved' && f !== 'asked'
 function boards(f) {
   const b = feed.board || {}
-  if (dept === 'money' && f !== 'solved' && b.money) { const m = b.money; return `<section class="item"><div class="totals"><div><div class="k">Out today</div><div class="v">${kes(m.out)}</div></div><div><div class="k">Proven</div><div class="v">${kes(m.proven)}</div></div><div><div class="k">No purpose yet</div><div class="v">${kes(m.waiting)}</div></div></div><div class="facts"><span>in <b>${kes(m.in)}</b></span><span>other business <b>${kes(m.business)}</b></span><span>personal <b>${kes(m.personal)}</b></span>${m.explained ? `<span>in your words <b>${kes(m.explained)}</b></span>` : ''}${m.gaps ? `<span>texts missing <b>${m.gaps}</b></span>` : ''}</div></section>` }
+  if (dept === 'money' && showsBoards(f) && b.money) { const m = b.money; return `<section class="item"><div class="totals"><div><div class="k">Out today</div><div class="v">${kes(m.out)}</div></div><div><div class="k">Proven</div><div class="v">${kes(m.proven)}</div></div><div><div class="k">No purpose yet</div><div class="v">${kes(m.waiting)}</div></div></div><div class="facts"><span>in <b>${kes(m.in)}</b></span><span>other business <b>${kes(m.business)}</b></span><span>personal <b>${kes(m.personal)}</b></span>${m.explained ? `<span>in your words <b>${kes(m.explained)}</b></span>` : ''}${m.gaps ? `<span>texts missing <b>${m.gaps}</b></span>` : ''}</div></section>` }
   return ''
 }
 function boardsBelow(f) {
   const b = feed.board || {}
-  if (dept === 'money' && f !== 'solved') return owedHtml()   // after what needs him: the payments first, then who is owed
-  if (dept === 'machines' && f !== 'solved' && (b.machines || []).length) return `<div class="group"><span>Today's machines</span><span>${b.machines.length}</span></div>` + b.machines.map(m => {
+  if (dept === 'money' && showsBoards(f)) return owedHtml()   // after what needs him: the payments first, then who is owed
+  if (dept === 'machines' && showsBoards(f) && (b.machines || []).length) return `<div class="group"><span>Today's machines</span><span>${b.machines.length}</span></div>` + b.machines.map(m => {
     const eng = m.engine && m.engine.end != null ? Math.round((m.engine.end - m.engine.start) * 10) / 10 : null, q = m.quiet_min
     return `<section class="item"><div class="mach"><div class="code">${esc(m.code)}</div><div><div class="who">${esc(m.who || '')}</div><div class="where">${esc([m.area, m.site].filter(Boolean).join(' · '))}</div></div><div class="vol">${m.m3} m³<small>${m.trucks} truck${m.trucks === 1 ? '' : 's'}</small></div>
       <div class="steps"><span class="chip ${m.sr ? 'done' : ''}">${m.sr ? '✓' : '–'} Start</span><span class="chip ${m.er ? 'done' : ''}">${m.er ? '✓' : '–'} End</span><span class="chip">last ${m.last}</span>${q ? `<span class="chip need"><span class="dot"></span>quiet ${Math.floor(q / 60)} h ${q % 60} min</span>` : ''}${eng != null ? `<span class="chip">engine ${eng} h${m.span ? ` · pumping ${m.span.hours} h` : ''}</span>` : m.span ? `<span class="chip">pumping ${m.span.hours} h</span>` : ''}${m.issues ? `<span class="chip need"><span class="dot"></span>${m.issues} issue${m.issues > 1 ? 's' : ''}</span>` : ''}</div></div></section>` }).join('')
-  if (dept === 'fuel' && f !== 'solved' && (b.fuel || []).length) return `<div class="group"><span>Levels today</span><span>red line 0 · blue line 100</span></div>` + b.fuel.map(x => {
+  if (dept === 'fuel' && showsBoards(f) && (b.fuel || []).length) return `<div class="group"><span>Levels today</span><span>red line 0 · blue line 100</span></div>` + b.fuel.map(x => {
     const clamp = v => Math.max(0, Math.min(100, v)), last = x.marks[x.marks.length - 1], first = x.marks[0]
     const used = x.marks.reduce((a, m, i) => i && m.pct < x.marks[i - 1].pct ? a + (x.marks[i - 1].pct - m.pct) : a, 0)
     return `<section class="item"><div class="fuel-top"><span class="code">${esc(x.code)}</span><span class="what">${last.pct}%</span></div>
@@ -503,10 +524,12 @@ function render() {
   $('title').textContent = DEPTS[dept].title
   $('date').textContent = new Date(feed.now || Date.now()).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hm(feed.now || Date.now())
   $('brief').innerHTML = brief()
-  $('n-p').textContent = p.length || ''; $('n-s').textContent = s.length || ''
+  $('n-p').textContent = p.length || ''; $('n-i').textContent = w.length || ''; $('n-s').textContent = s.length || ''
   document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.f === f)))
   let html = boards(f)
-  if (f === 'pending') html += (p.length ? p.map(card).join('') : `<p class="empty">Nothing needs you here.</p>`) + (w.length ? `<div class="group"><span>Waiting on an operator</span><span>${w.length}</span></div>` + w.map(card).join('') : '')
+  // "Ask him" moves a thing to Investigating (the owner, 2 Oct 2026): it leaves Needs you and waits there until it is answered
+  if (f === 'pending') html += p.length ? p.map(card).join('') : `<p class="empty">Nothing needs you here.${w.length ? ` ${w.length} being investigated.` : ''}</p>`
+  else if (f === 'asked') html += w.length ? [...w.filter(t => t.replied), ...w.filter(t => !t.replied)].map(card).join('') : `<p class="empty">Nothing is being investigated.</p>`
   else if (f === 'solved') html += s.length ? s.map(card).join('') : `<p class="empty">Nothing solved yet today.</p>`
   else html += everything() || `<p class="empty">Nothing yet today.</p>`
   html += boardsBelow(f)
@@ -803,7 +826,7 @@ function picks(el, items, get, set, keep = false) { el.innerHTML = items.map(x =
 function composed() {
   if (compose.mode !== 'cost') return $('long').value.trim()
   const free = $('free').value.trim(); if (free) return free
-  const k = KINDS.find(x => x[0] === compose.kind); const amt = $('amount').value.replace(/[^\d.]/g, ''); const who = $('who').value.trim() || compose.who
+  const k = KINDS.find(x => x[0] === compose.kind); const amt = $('amount').value.replace(/[^\d.]/g, ''); const who = $('who').value.trim() || compose.who.join(', ')
   if (!k || !amt) return ''
   return [k[2] ? compose.machine : null, k[1], Number(amt).toLocaleString('en-US'), who ? `for ${who}` : null].filter(Boolean).join(' ')
 }
@@ -813,6 +836,7 @@ const routeWords = () => { const f = $('from').value.trim(), t = $('to').value.t
 function preview() {
   if (compose.mode === 'owed') { $('send').disabled = !compose.code; return }
   $('route').hidden = compose.kind !== 'Between sites'
+  $('who-label').textContent = compose.kind === 'Between sites' ? 'Who — all who shared it' : 'Who (optional)'
   const t = composed(); $('preview').textContent = t ? t + routeWords() + dayWords() : 'Pick a kind and an amount.'; $('send').disabled = !t && compose.mode !== 'business'
 }
 // the men on the chosen machine's registers of the chosen day — the payment's payee first when he is one of them
@@ -821,14 +845,16 @@ async function crew() {
   const k = compose.machine + '|' + compose.day
   if (!crews[k]) { el.innerHTML = '<span class="chip">looking at the registers…</span>'; const { data } = await api(`crew&machine=${encodeURIComponent(compose.machine)}&day=${compose.day}`).catch(() => ({ data: null })); crews[k] = (data && data.names) || [] }
   const names = crews[k]
-  if (compose.who && !names.some(n => n.name === compose.who)) compose.who = null
-  el.innerHTML = names.length ? names.map(n => `<button class="pick" aria-pressed="${compose.who === n.name}" data-v="${esc(n.name)}">${esc(n.name)}</button>`).join('') : `<span class="chip">no register for ${esc(compose.machine)} that day</span>`
-  el.onclick = e => { const c = e.target.closest('.pick'); if (!c) return; compose.who = compose.who === c.dataset.v ? null : c.dataset.v; $('who').value = ''; crew(); preview() }
+  compose.who = compose.who.filter(w => names.some(n => n.name === w))
+  el.innerHTML = names.length ? names.map(n => `<button class="pick" aria-pressed="${compose.who.includes(n.name)}" data-v="${esc(n.name)}">${esc(n.name)}</button>`).join('') : `<span class="chip">no register for ${esc(compose.machine)} that day</span>`
+  // one man for a cost — but a move between sites can be shared (the owner, 2 Oct 2026: "for between sites i need to be able to select
+  // multiple staff names. sometimes they can share the same transport"): there every tap adds or removes a man, and the amount is the one fare
+  el.onclick = e => { const c = e.target.closest('.pick'); if (!c) return; const v = c.dataset.v; compose.who = compose.who.includes(v) ? compose.who.filter(x => x !== v) : compose.kind === 'Between sites' ? [...compose.who, v] : [v]; $('who').value = ''; crew(); preview() }
   preview()
 }
 function openSheet(pre = {}) {
   const mode = pre.owed ? 'owed' : pre.ask ? 'ask' : pre.paste ? 'paste' : pre.bucket === 'business' ? 'business' : 'cost'
-  compose = { mode, machine: pre.machine || null, kind: null, receipt: pre.receipt || null, id: pre.id || null, item: pre.item || 0, day: pre.day || lastDays()[0].iso, shift: pre.shift === 'night' ? 'night' : 'day', who: pre.who || null }
+  compose = { mode, machine: pre.machine || null, kind: null, receipt: pre.receipt || null, id: pre.id || null, item: pre.item || 0, day: pre.day || lastDays()[0].iso, shift: pre.shift === 'night' ? 'night' : 'day', who: pre.who ? [pre.who] : [] }
   $('amount').value = pre.amount ? Number(pre.amount).toLocaleString('en-US') : ''; $('who').value = ''; $('free').value = ''; $('long').value = ''
   $('cost-fields').hidden = mode !== 'cost'; $('text-fields').hidden = mode === 'cost' || mode === 'owed'; $('owed-fields').hidden = mode !== 'owed'; $('qa').hidden = mode !== 'ask'
   $('from').value = ''; $('to').value = ''; compose.ids = pre.owed || null; compose.code = null
@@ -840,7 +866,7 @@ function openSheet(pre = {}) {
     picks($('days'), days.map(d => d.label), () => (days.find(d => d.iso === compose.day) || {}).label, v => { compose.day = (days.find(d => d.label === v) || days[0]).iso; crew() }, true)
     picks($('shifts'), ['Day shift', 'Night shift'], () => compose.shift === 'night' ? 'Night shift' : 'Day shift', v => { compose.shift = v === 'Night shift' ? 'night' : 'day' }, true)
     picks($('machines'), feed.machines || [], () => compose.machine, v => { compose.machine = v; crew() })
-    picks($('kinds'), KINDS.map(k => k[0]), () => compose.kind, v => compose.kind = v)
+    picks($('kinds'), KINDS.map(k => k[0]), () => compose.kind, v => { compose.kind = v; if (v !== 'Between sites' && compose.who.length > 1) { compose.who = compose.who.slice(0, 1); crew() } })
     crew()
   } else if (mode === 'owed') {
     const kinds = feed.kinds || {}
