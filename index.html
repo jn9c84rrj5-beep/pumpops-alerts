@@ -27,16 +27,19 @@
     --z-bar: 20; --z-sheet: 40; --z-toast: 50;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; }
+  /* THE SHELL NEVER SCROLLS (the owner, 2 Oct 2026: "the bottom nav bar in the bot app doesnt always stay fixed to the bottom, please make
+     it so"): on the iPhone a fixed bar rides with the page when it bounces at its ends, is dragged sideways, or the keyboard opens and
+     closes. So the page itself is pinned to the screen and only #scroll moves inside it; the bar and the button sit outside what moves. */
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; }
   body {
-    min-height: 100dvh; color: var(--strong); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+    position: fixed; inset: 0; width: 100%; color: var(--strong); font: 15px/1.45 -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
     background:
       radial-gradient(120% 60% at 12% 0%, var(--bg-b) 0%, transparent 62%),
       radial-gradient(90% 55% at 100% 18%, var(--bg-c) 0%, transparent 60%),
       radial-gradient(110% 70% at 50% 100%, var(--bg-a) 0%, transparent 70%), var(--page);
-    background-attachment: fixed;
-    padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 112px) env(safe-area-inset-left);
   }
+  #scroll { position: absolute; inset: 0; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 112px) env(safe-area-inset-left); }
   button, input, textarea { font: inherit; color: inherit; }
   [hidden] { display: none !important; }
   .glass { background: var(--glass); -webkit-backdrop-filter: blur(26px) saturate(180%); backdrop-filter: blur(26px) saturate(180%); border: 1px solid var(--edge); box-shadow: inset 0 1px 0 var(--edge-top), var(--shadow); }
@@ -182,6 +185,7 @@
 </style>
 </head>
 <body>
+<div id="scroll">
 <header id="bar" hidden><div class="head glass">
   <div class="title-row"><h1 id="title"></h1><div class="title-side"><span class="date" id="date"></span><button class="ask" id="ask">Ask</button></div></div>
   <p class="brief" id="brief"></p>
@@ -192,6 +196,7 @@
   </div>
 </div></header>
 <main id="main"></main>
+</div>
 <button class="fab glass" id="fab" hidden>+ Say a cost</button>
 <nav class="glass" aria-label="Departments" id="nav" hidden></nav>
 
@@ -239,6 +244,7 @@ const DEPTS = {
 const KIND = { mpesa: 'Payment', alert: 'Alert', summary: 'Summary', reply: 'Bot', receipt: 'Received', fuel: 'Fuel' }
 const $ = id => document.getElementById(id)
 const main = $('main')
+const scroller = $('scroll')   // the one thing that scrolls (the shell is pinned to the screen)
 const store = { get token() { try { return localStorage.getItem('pumpops.token') } catch { return null } }, set token(v) { try { v ? localStorage.setItem('pumpops.token', v) : localStorage.removeItem('pumpops.token') } catch {} } }
 const standalone = window.navigator.standalone === true || matchMedia('(display-mode: standalone)').matches
 let feed = { rows: [], answers: [], board: { machines: [], fuel: [], money: {} }, briefs: null, questions: [], machines: ['A', 'A2', 'A3', 'A4', 'A5', 'S', 'TRK'] }
@@ -453,9 +459,9 @@ function render() {
   else if (f === 'solved') html += s.length ? s.map(card).join('') : `<p class="empty">Nothing solved yet today.</p>`
   else html += everything() || `<p class="empty">Nothing yet today.</p>`
   html += boardsBelow(f)
-  const y = window.scrollY
+  const y = scroller.scrollTop
   main.innerHTML = html
-  window.scrollTo({ top: y })
+  scroller.scrollTop = y
   $('nav').innerHTML = Object.entries(DEPTS).map(([k, d]) => { const n = todo(k).length; return `<button class="tab" data-d="${k}" ${k === dept ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span>${d.tab}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>` }).join('')
   $('ask').setAttribute('aria-label', dept === 'all' ? 'Ask about today' : `Ask the ${DEPTS[dept].tab} manager`)
 }
@@ -472,8 +478,8 @@ async function say(body, quiet) {
 }
 document.addEventListener('click', async e => {
   const b = e.target.closest('button'), art = e.target.closest('.item.solved')
-  if (b?.dataset.d) { dept = b.dataset.d; window.scrollTo({ top: 0 }); return render() }
-  if (b?.dataset.f) { filters[dept] = b.dataset.f; window.scrollTo({ top: 0 }); return render() }
+  if (b?.dataset.d) { dept = b.dataset.d; scroller.scrollTop = 0; return render() }
+  if (b?.dataset.f) { filters[dept] = b.dataset.f; scroller.scrollTop = 0; return render() }
   if (b?.dataset.owed) { const id = Number(b.dataset.owed); owedSel.has(id) ? owedSel.delete(id) : owedSel.add(id); return render() }
   if (b?.dataset.owedact) {
     const os = owedGroups().get(b.dataset.g) || [], picked = os.filter(o => owedSel.has(o.id)), ids = (picked.length ? picked : os).map(o => o.id)
@@ -572,7 +578,12 @@ function openSheet(pre = {}) {
 }
 function thread() { const qs = (feed.questions || []).filter(q => q.department === dept); $('qa').innerHTML = qs.map(q => `<div><div class="q">${esc(q.question)}</div><div class="a ${q.status === 'asked' ? 'wait' : ''}">${q.status === 'asked' ? 'Thinking…' : esc(q.answer || 'No answer — ask again.')}</div></div>`).join('') }
 // the header folds once the page is well scrolled and opens again only near the top (the fold itself moves the page: no flicker)
-addEventListener('scroll', () => { const c = document.body.classList; if (!c.contains('scrolled') && scrollY > 140) c.add('scrolled'); else if (c.contains('scrolled') && scrollY < 16) c.remove('scrolled') }, { passive: true })
+scroller.addEventListener('scroll', () => { const c = document.body.classList, y = scroller.scrollTop; if (!c.contains('scrolled') && y > 140) c.add('scrolled'); else if (c.contains('scrolled') && y < 16) c.remove('scrolled') }, { passive: true })
+// the keyboard: iOS slides the whole window up for a field and can leave it there when the keyboard closes — put it back, so the bar
+// is at the bottom again
+const settle = () => { if (window.scrollY || window.scrollX) window.scrollTo(0, 0) }
+addEventListener('focusout', () => setTimeout(settle, 60))
+window.visualViewport?.addEventListener('resize', () => { if (!document.activeElement || !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) settle() })
 $('fab').onclick = () => openSheet()
 $('ask').onclick = () => openSheet({ ask: true })
 $('cancel').onclick = () => $('sheet').close()
