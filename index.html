@@ -406,8 +406,11 @@ const dayName = iso => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-GB', 
 function owedGroups() { const g = new Map(); for (const o of feed.owed || []) { const k = `${o.machine_code}|${o.day_date}|${o.cost_code}`; if (!g.has(k)) g.set(k, []); g.get(k).push(o) } return g }
 function owedHtml() {
   const rows = feed.owed || []; if (!rows.length) return ''
-  const kinds = feed.kinds || {}, total = rows.reduce((a, o) => a + Number(o.amount_ksh), 0)
-  return `<div class="group"><span>Owed, by the ending registers</span><span>KES ${kes(total)}</span></div>` + [...owedGroups().entries()].map(([k, os]) => {
+  const kinds = feed.kinds || {}, allow = new Set(feed.allowances || ['MEAL_SUPPER', 'MEAL_BREAKFAST', 'TRANSPORT_EARLY_START'])
+  // "only supper, breakfast and early start transport are allowances paid to staff. the others are works carried out BY the staff that
+  // we had to pay for" (R129): two lists — what the men are owed, and the works the registers say were paid for
+  const part = (title, pick) => { const gs = [...owedGroups().entries()].filter(([k]) => pick(k.split('|')[2])); const total = gs.reduce((a, [, os]) => a + os.reduce((x, o) => x + Number(o.amount_ksh), 0), 0); return gs.length ? `<div class="group"><span>${title}</span><span>KES ${kes(total)}</span></div>` + gs.map(group).join('') : '' }
+  const group = ([k, os]) => {
     const [m, d, c] = k.split('|'), sum = os.reduce((a, o) => a + Number(o.amount_ksh), 0), n = os.filter(o => owedSel.has(o.id)).length
     const was = [...new Set(os.filter(o => o.stated_code !== c).map(o => kinds[o.stated_code] || o.stated_code))]
     return `<section class="item"><div class="meta"><span class="chip need"><span class="dot"></span>Owed</span><span>${esc(m)} · ${dayName(d)}</span></div>
@@ -415,7 +418,8 @@ function owedHtml() {
       ${was.length ? `<div class="was">the register says ${esc(was.join(', ').toLowerCase())}; changed by you</div>` : ''}
       <div class="picks" style="margin-top:10px">${os.map(o => `<button class="pick" data-owed="${o.id}" aria-pressed="${owedSel.has(o.id)}">${esc(o.staff_name)} · ${kes(o.amount_ksh)}</button>`).join('')}</div>
       <div class="acts"><button class="act" data-owedact="change" data-g="${esc(k)}">Change purpose</button><button class="act quiet" data-owedact="paid" data-g="${esc(k)}">Paid already</button><button class="act quiet" data-owedact="dismiss" data-g="${esc(k)}">Not owed</button></div>
-      <div class="was">${n ? `${n} picked` : 'for all of them — or tap names to pick some'}</div></section>` }).join('')
+      <div class="was">${n ? `${n} picked` : 'for all of them — or tap names to pick some'}</div></section>` }
+  return part('Owed to staff — allowances on the registers', c => allow.has(c)) + part('Works the registers say were paid for', c => !allow.has(c))
 }
 function boards(f) {
   const b = feed.board || {}
