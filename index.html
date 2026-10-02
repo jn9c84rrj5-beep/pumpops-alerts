@@ -183,6 +183,45 @@
   .qa .wait { color: var(--body); font-style: italic; }
   .qa > div { padding-top: 10px; border-top: 1px solid var(--edge); }
 
+  /* JOBS (W26; the owner, 2 Oct 2026: "a job comes in, i confirm availabilty then add it to my calendar … i'd like the app calendar to
+     look/work like that" · "job shells in the bot app where i can click the missing fields"): a month like his own calendar — a bar per
+     machine-day reading "(A4) Acacia" — the chosen day's jobs beneath it, and a job's shell with its gaps to tap. */
+  .calnav { display: grid; grid-template-columns: 44px 1fr 44px auto; gap: 4px; align-items: center; margin-top: 10px; }
+  .calnav button { min-height: 44px; border: 0; background: transparent; color: var(--ink); border-radius: 12px; }
+  .calnav .arrow { font-size: 24px; line-height: 1; color: var(--strong); }
+  .calnav .month { font-size: 16px; font-weight: 600; text-align: center; }
+  .calnav .ask { min-height: 34px; }
+  .cal { background: var(--card); border: 1px solid var(--edge); border-radius: 18px; padding: 8px 5px 5px; }
+  .dow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); font-size: 11px; color: var(--body); text-align: center; padding-bottom: 5px; }
+  .calgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .cell { min-height: 82px; min-width: 0; padding: 3px 1px 4px; border: 0; border-top: 1px solid var(--edge); border-radius: 0; background: transparent; display: flex; flex-direction: column; align-items: stretch; gap: 2px; color: var(--strong); text-align: left; }
+  .cell .num { align-self: center; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
+  .cell.out .num { color: var(--body); opacity: .6; }
+  .cell.out .bar { opacity: .5; }
+  .cell.today .num { background: #ff453a; color: #fff; }
+  .cell[aria-pressed="true"] { background: var(--track); border-radius: 10px; }
+  .cell:focus-visible { outline: 2px solid var(--primary-ink); outline-offset: -2px; }
+  .bar { --mc: #94a3b8; font-size: 10px; line-height: 14px; font-weight: 600; padding: 0 3px; border-radius: 4px; white-space: nowrap; overflow: hidden; background: color-mix(in srgb, var(--mc) 28%, transparent); color: color-mix(in srgb, var(--mc) 45%, #fff); }
+  .bar.none { background: transparent; box-shadow: inset 0 0 0 1px var(--edge-top); color: var(--strong); }
+  .bar.card { background: color-mix(in srgb, var(--mc) 15%, transparent); color: color-mix(in srgb, var(--mc) 60%, #cbd5e1); }
+  .moreb { font-size: 10px; line-height: 12px; color: var(--body); padding-left: 3px; }
+  .jobrow { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; width: 100%; text-align: left; border: 1px solid var(--edge); }
+  .jobrow .code { --mc: #94a3b8; font-size: 17px; min-width: 46px; text-align: center; padding: 4px 6px; border-radius: 10px; background: color-mix(in srgb, var(--mc) 24%, transparent); color: color-mix(in srgb, var(--mc) 45%, #fff); }
+  .jobrow .sub { color: var(--body); font-size: 13.5px; }
+  .titleline { font: 600 14px/1.45 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink); overflow-wrap: anywhere; padding: 10px 12px; border-radius: 12px; background: var(--track); margin: 8px 0 4px; }
+  .titleline .gap { color: var(--warn); }
+  .secth { margin: 18px 0 0; padding-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--body); display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--edge); }
+  .frow { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: baseline; width: 100%; text-align: left; min-height: 44px; padding: 11px 2px; border: 0; border-bottom: 1px solid var(--edge); border-radius: 0; background: transparent; }
+  .frow .k { color: var(--body); font-size: 13.5px; }
+  .frow .v { color: var(--ink); overflow-wrap: anywhere; white-space: pre-wrap; font-variant-numeric: tabular-nums; }
+  .frow .v.gap { color: var(--warn); }
+  .frow .v.later { color: var(--body); }
+  .frow:focus-visible { outline: 2px solid var(--primary-ink); outline-offset: -2px; }
+  .editor { padding: 10px 0 14px; border-bottom: 1px solid var(--edge); display: grid; gap: 8px; }
+  .editor .k { color: var(--ink); font-weight: 600; font-size: 14px; }
+  .editor .line { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .pick.use { border-style: dashed; border-color: color-mix(in srgb, var(--info) 60%, transparent); color: var(--info); text-align: left; border-radius: 14px; }
+  .why { font-size: 12.5px; color: var(--body); }
   .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(150px + env(safe-area-inset-bottom)); z-index: var(--z-toast); border-radius: 14px; padding: 10px 14px; font-size: 14px; color: var(--ink); opacity: 0; pointer-events: none; transition: opacity .2s ease-out; max-width: min(92vw, 460px); white-space: pre-wrap; }
   .toast.on { opacity: 1; }
   .empty { text-align: center; color: var(--body); padding: 36px 12px; }
@@ -199,6 +238,7 @@
     <button data-f="solved" aria-pressed="false">Solved<span class="n" id="n-s"></span></button>
     <button data-f="all" aria-pressed="false">Everything</button>
   </div>
+  <div class="calnav" id="calnav" hidden><button class="arrow" id="cal-prev" aria-label="The month before">‹</button><button class="month" id="cal-month"></button><button class="arrow" id="cal-next" aria-label="The month after">›</button><button class="ask" id="cal-today">Today</button></div>
 </div></header>
 <div id="scroll"><main id="main"></main></div>
 <button class="fab glass" id="fab" hidden>+ Say a cost</button>
@@ -229,6 +269,7 @@
   <div class="sheet-actions"><button class="act quiet" id="cancel">Cancel</button><button class="act yes" id="send">Send</button></div>
   <div class="qa" id="qa" hidden></div>
 </dialog>
+<dialog id="job" aria-label="Job"><div id="job-body"></div></dialog>
 <div class="toast glass" id="toast" role="status"></div>
 
 <script>
@@ -238,6 +279,7 @@ const KINDS = [['Fuel', 'fuel', 1], ['Fuel run', 'fuel run', 1], ['Engine oil', 
   ['Late finish', 'late finish', 1], ['Breakfast', 'breakfast', 1], ['Supper', 'supper', 1], ['New equipment', 'bought new equipment', 1], ['Advance', 'advance', 0], ['Pay', 'salary', 0]]
 const DEPTS = {
   all: { title: 'All', tab: 'All', icon: '<path d="M4 6h16M4 12h16M4 18h10"/>' },
+  jobs: { title: 'Jobs', tab: 'Jobs', icon: '<rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/>' },
   machines: { title: 'Machines', tab: 'Machines', icon: '<rect x="3" y="9" width="13" height="8" rx="2"/><path d="M16 12h3l2 3v2h-5M7 20a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm10 0a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z"/>' },
   fuel: { title: 'Fuel', tab: 'Fuel', icon: '<path d="M12 3s6 6.2 6 10.5A6 6 0 0 1 6 13.5C6 9.2 12 3 12 3Z"/>' },
   money: { title: 'Money', tab: 'Money', icon: '<rect x="3" y="6" width="18" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/>' },
@@ -264,7 +306,7 @@ const kes = n => Number(n || 0).toLocaleString('en-US')
 const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 5000) }
 const key = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)) }
 const api = async (task, opts = {}) => {
-  if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
+  if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : task.startsWith('calendar') ? window.FIXTURE_CAL : task === 'lists' ? window.FIXTURE_LISTS : task.startsWith('proposals') ? (window.FIXTURE_PROPOSALS || {}) : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
   const r = await fetch(`${FN}?task=${task}`, { method: opts.body ? 'POST' : 'GET', headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(store.token ? { 'x-device-token': store.token } : {}) }, body: opts.body ? JSON.stringify(opts.body) : undefined })
   return { status: r.status, data: await r.json().catch(() => ({})) }
 }
@@ -305,11 +347,11 @@ async function waitApproval(sub) {
 async function load() {
   const { status, data } = await api('feed').catch(() => ({ status: 0, data: {} }))
   if (status === 403) { store.token = null; return start() }
-  if (data.rows) { feed = data; derive(); render() }
+  if (data.rows) { feed = data; derive(); if (dept === 'jobs' && !$('job').open) loadCal(); else render() }
 }
 function show() {
   for (const id of ['bar', 'fab', 'nav']) $(id).hidden = false
-  load().then(() => { const m = new URLSearchParams(location.search).get('m'); if (m) focusMsg(m) })
+  load().then(() => { const m = new URLSearchParams(location.search).get('m'); if (m) focusMsg(m); loadCal() })   // the calendar too: the Jobs tab's count of shells with gaps
   // every 30 s; while a question to a manager is open, every 15 s so its answer shows as soon as it is written
   let tick = 0
   clearInterval(timer); timer = setInterval(() => {
@@ -451,7 +493,12 @@ function boardsBelow(f) {
       <div class="facts"><span>first <b>${first.pct}% · ${first.hm}</b></span><span>photos <b>${x.marks.length}</b></span><span>refuels <b>${x.refuels}${x.rise ? ` · +${x.rise} pts` : ''}</b></span><span>went down <b>${used} pts${x.litres_per_gauge ? ` ≈ ${Math.round(used * x.litres_per_gauge / 100)} L` : ''}</b></span></div></section>` }).join('')
   return ''
 }
+const navBar = () => { $('nav').innerHTML = Object.entries(DEPTS).map(([k, d]) => { const n = k === 'jobs' ? jobsToFill() : todo(k).length; return `<button class="tab" data-d="${k}" ${k === dept ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span>${d.tab}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>` }).join('') }
 function render() {
+  const jobsTab = dept === 'jobs'
+  document.querySelector('.seg').hidden = jobsTab; $('calnav').hidden = !jobsTab; $('ask').hidden = jobsTab
+  $('fab').textContent = jobsTab ? '+ Plan a job' : '+ Say a cost'
+  if (jobsTab) return renderJobs()
   const f = filters[dept] || 'pending', p = todo(dept), w = waiting(dept), s = solved(dept)
   $('title').textContent = DEPTS[dept].title
   $('date').textContent = new Date(feed.now || Date.now()).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hm(feed.now || Date.now())
@@ -466,9 +513,242 @@ function render() {
   const y = scroller.scrollTop
   main.innerHTML = html
   scroller.scrollTop = y
-  $('nav').innerHTML = Object.entries(DEPTS).map(([k, d]) => { const n = todo(k).length; return `<button class="tab" data-d="${k}" ${k === dept ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span>${d.tab}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>` }).join('')
+  navBar()
   $('ask').setAttribute('aria-label', dept === 'all' ? 'Ask about today' : `Ask the ${DEPTS[dept].tab} manager`)
 }
+// ══ JOBS (W26) ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// The calendar holds the jobs HE planned (their shells) and the days the cards already hold. A register never makes a job: a machine
+// that reports with no planned job is one question to him (Machines). What a shell proposes — the next number, the machine's last
+// engine hours and END — is offered as a dashed chip and filed only when he taps it (R128).
+let cal = null, calMonth = null, calSel = null, lists = null, shellJob = null, editing = null, props = {}, plan = null
+const MC = { A: '#60a5fa', A2: '#4ade80', A3: '#fb923c', A4: '#c084fc', A5: '#f472b6', S: '#facc15', TRK: '#2dd4bf' }
+const MORDER = ['A', 'A2', 'A3', 'A4', 'A5', 'S', 'TRK']
+const isoDay = d => d.toISOString().slice(0, 10)
+const atNoon = iso => new Date(iso + 'T12:00:00Z')
+const longDay = iso => { const d = atNoon(iso); return `${d.toLocaleDateString('en-GB', { weekday: 'short', timeZone: 'UTC' })} ${d.getUTCDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getUTCMonth()]}` }
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']   // the months as his cards write them
+const cardDate = (iso, short) => { const d = atNoon(iso); return `${String(d.getUTCDate()).padStart(2, '0')}/${MON[d.getUTCMonth()]}${short ? '' : '/' + d.getUTCFullYear()}` }
+const n1 = v => Number(v).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+const weekStart = (() => { try { const l = new Intl.Locale(navigator.language), w = (l.getWeekInfo ? l.getWeekInfo() : l.weekInfo); return w && w.firstDay ? w.firstDay % 7 : 1 } catch { return 1 } })()
+// what a shell still wants from him: the job's own gaps now; a day's engine hours (end) once the day is behind
+const JOB_REQ = ['client', 'casting', 'machine_code', 'job_number', 'engine_hours_start', 'crane_line']
+const empty = v => v == null || v === ''
+function gapsOf(j) { let n = JOB_REQ.filter(f => empty(j[f])).length; for (const d of j.days) { if (empty(d.reporting_time)) n++; if (empty(d.start_line)) n++; if (cal && d.day_date < cal.today && empty(d.engine_hours_end) && d.kind !== 'setting') n++ } return n }
+const liveJobs = () => (cal ? cal.jobs.filter(j => j.status !== 'cancelled') : [])
+// the badge on the tab: the shells of today and tomorrow that still have gaps
+function jobsToFill() { if (!cal) return 0; const soon = isoDay(new Date(atNoon(cal.today).getTime() + 86400e3)); return liveJobs().filter(j => j.status !== 'done' && j.days.some(d => d.day_date >= cal.today && d.day_date <= soon) && gapsOf(j)).length }
+function entriesOf(iso) {
+  const out = []
+  for (const j of liveJobs()) for (const d of j.days) if (d.day_date === iso) out.push({ plan: true, j, d, machine: j.machine_code || null, site: j.site_name, area: j.area_name })
+  for (const l of cal.live) if (l.day_date === iso && !out.some(e => e.machine && e.machine === l.machine)) out.push({ plan: false, l, machine: l.machine, site: l.site, area: l.area })
+  const rank = m => { const i = MORDER.indexOf(m); return i < 0 ? 99 : i }
+  return out.sort((a, b) => rank(a.machine) - rank(b.machine))
+}
+async function loadCal() {
+  if (!calMonth) calMonth = (feed.now ? new Date(feed.now) : new Date()).toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' }).slice(0, 7)
+  const { status, data } = await api('calendar&month=' + calMonth).catch(() => ({ status: 0, data: {} }))
+  if (status === 403) { store.token = null; return start() }
+  if (data && data.jobs) { cal = data; if (!calSel) calSel = cal.today }
+  if (dept === 'jobs') render(); else navBar()
+}
+function renderJobs() {
+  $('title').textContent = 'Jobs'
+  $('date').textContent = cal ? longDay(cal.today) : ''
+  if (!cal) { $('brief').innerHTML = 'Opening the calendar…'; main.innerHTML = ''; navBar(); return }
+  const todays = entriesOf(cal.today), fill = jobsToFill(), unassigned = liveJobs().filter(j => !j.machine_code && j.days.some(d => d.day_date >= cal.today)).length
+  $('brief').innerHTML = `<b>${todays.length} machine-day${todays.length === 1 ? '' : 's'} today.</b>${fill ? ` <b>${fill}</b> shell${fill === 1 ? ' has' : 's have'} gaps to fill.` : ' Every shell for today and tomorrow is filled.'}${unassigned ? ` ${unassigned} planned with no machine yet.` : ''}`
+  const first = atNoon(calMonth + '-01')
+  $('cal-month').textContent = first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  const lead = (first.getUTCDay() - weekStart + 7) % 7, days = []
+  for (let i = 0; i < 42; i++) days.push(isoDay(new Date(first.getTime() + (i - lead) * 86400e3)))
+  const shown = days[35].slice(0, 7) === calMonth ? days : days.slice(0, 35)
+  const dow = Array.from({ length: 7 }, (_, i) => atNoon(days[i]).toLocaleDateString('en-GB', { weekday: 'narrow', timeZone: 'UTC' }))
+  const cell = iso => {
+    const es = entriesOf(iso), show = es.length > 7 ? es.slice(0, 6) : es   // a full fleet's day shows whole, as his own calendar does
+    return `<button class="cell ${iso.slice(0, 7) !== calMonth ? 'out' : ''} ${iso === cal.today ? 'today' : ''}" data-cell="${iso}" aria-pressed="${iso === calSel}" aria-label="${longDay(iso)}, ${es.length} job${es.length === 1 ? '' : 's'}"><span class="num">${Number(iso.slice(8))}</span>${show.map(e => `<span class="bar ${e.machine ? '' : 'none'} ${e.plan ? '' : 'card'}" style="--mc:${MC[e.machine] || '#94a3b8'}">(${esc(e.machine || ' ')}) ${esc(e.site || '?')}</span>`).join('')}${es.length > show.length ? `<span class="moreb">+${es.length - show.length}</span>` : ''}</button>`
+  }
+  const sel = calSel || cal.today, es = entriesOf(sel)
+  const row = e => {
+    if (!e.plan) return `<section class="item jobrow"><span class="code" style="--mc:${MC[e.machine] || '#94a3b8'}">${esc(e.machine || '?')}</span><div><div class="what">${esc(e.site || '?')}${e.area ? ` · ${esc(e.area)}` : ''}</div><div class="sub">#${esc(e.l.card)} · ${esc(String(e.l.day_label || '').replace(/:$/, ''))}${e.l.m3 ? ` · ${Number(e.l.m3)} m³` : ''}</div></div><span class="chip done">on its card</span></section>`
+    const g = gapsOf(e.j), d = e.d
+    return `<button class="item jobrow" data-job="${e.j.id}"><span class="code" style="--mc:${MC[e.machine] || '#94a3b8'}">${esc(e.machine || '—')}</span><div><div class="what">${esc(e.site)}${e.area ? ` · ${esc(e.area)}` : ''}</div><div class="sub">${[e.j.job_number ? '#' + e.j.job_number : 'no number yet', d.kind === 'setting' ? 'Day 0 · setting' : 'Day ' + d.day_no, d.shift === 'night' ? 'night' : null, d.reporting_time ? String(d.reporting_time).slice(0, 5) : null, e.j.client ? '[' + e.j.client + ']' : null].filter(Boolean).map(esc).join(' · ')}</div></div>${e.j.status === 'done' ? '<span class="chip done">✓ finished</span>' : g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : '<span class="chip done">✓ filled</span>'}</button>`
+  }
+  const y = scroller.scrollTop
+  main.innerHTML = `<section class="cal"><div class="dow">${dow.map(x => `<span>${x}</span>`).join('')}</div><div class="calgrid">${shown.map(cell).join('')}</div></section>
+    <div class="group"><span>${longDay(sel)}${sel === cal.today ? ' · today' : ''}</span><span>${es.length || 'no'} job${es.length === 1 ? '' : 's'}</span></div>
+    ${es.map(row).join('') || '<p class="empty" style="padding:18px 12px">Nothing planned for this day.</p>'}
+    <button class="act" data-plan="${sel}" style="justify-self:start">+ Plan a job on ${longDay(sel)}</button>`
+  scroller.scrollTop = y
+  navBar()
+}
+$('cal-prev').onclick = () => shiftMonth(-1); $('cal-next').onclick = () => shiftMonth(1)
+$('cal-today').onclick = $('cal-month').onclick = () => { if (!cal) return; calMonth = cal.today.slice(0, 7); calSel = cal.today; loadCal() }
+function shiftMonth(by) { const d = atNoon(calMonth + '-15'); d.setUTCMonth(d.getUTCMonth() + by); calMonth = isoDay(d).slice(0, 7); loadCal() }
+async function needLists() { if (!lists) { const { data } = await api('lists').catch(() => ({ data: null })); lists = data && data.sites ? data : { sites: [], areas: [], clients: [], castings: [], agents: [] } } return lists }
+async function jobSay(body) {
+  busy = true
+  try {
+    const { status, data } = await api('reply', { body })
+    if (status !== 200) { toast(data.error || 'Not saved — try again.'); return null }
+    await loadCal(); return data
+  } catch { toast('No connection — try again.'); return null } finally { busy = false }
+}
+
+// ── the shell: the card he would author, its gaps to tap ──
+const JOB_ROWS = [['site', 'Site'], ['client', 'Client'], ['casting', 'Casting'], ['agent', 'Agent'], ['contact', 'Contact'], ['maps_pin_url', 'Maps pin'], ['machine_code', 'Machine'], ['job_number', 'Job number'], ['engine_hours_start', 'Engine hours (start)'], ['crane_line', 'Truck line']]
+const DAY_ROWS = [['reporting_time', 'Reporting time'], ['casting', 'Casting'], ['start_line', 'START'], ['end_line', 'END'], ['engine_hours_end', 'Engine hours (end)'], ['notes', 'NOTES']]
+const OPTIONAL = new Set(['agent', 'contact', 'maps_pin_url', 'casting:day', 'end_line', 'notes'])
+const placeOf = j => (j.area_name ? j.area_name + ' - ' : '') + j.site_name
+function titleLine(j) {
+  const g = t => `<span class="gap">${t}</span>`, first = j.days.filter(d => d.day_no >= 1).map(d => d.day_date).sort()[0] || (j.days[0] || {}).day_date
+  return `#${j.job_number ? esc(j.job_number) : g('?')} [${j.client ? esc(j.client) : g('?')}] (${j.machine_code ? esc(j.machine_code) : g('?')}) {${j.casting ? esc(j.casting) : g('?')}} - ${first ? cardDate(first) : g('?')} ${esc(j.site_name)}${j.area_name ? ' ' + esc(j.area_name) : ''}`
+}
+function valueOf(scope, f, o, j) {
+  if (f === 'site') return `${esc(o.site_name)}${o.area_name ? ' · ' + esc(o.area_name) : ''}${o.site_id ? '' : ' <span class="chip need">new site — not in the file yet</span>'}`
+  const v = o[f]
+  if (empty(v)) {
+    if (f === 'engine_hours_end') return `<span class="v ${cal && o.day_date < cal.today ? 'gap' : 'later'}">${cal && o.day_date < cal.today ? 'Tap to fill' : 'at the day’s end'}</span>`
+    if (f === 'end_line') return '<span class="v later">END (where the job is) — tap if it moved</span>'
+    return `<span class="v ${OPTIONAL.has(scope === 'day' && f === 'casting' ? 'casting:day' : f) ? 'later' : 'gap'}">${OPTIONAL.has(scope === 'day' && f === 'casting' ? 'casting:day' : f) ? 'none — tap to add' : 'Tap to fill'}</span>`
+  }
+  if (f === 'engine_hours_start' || f === 'engine_hours_end') return n1(v)
+  if (f === 'reporting_time') return esc(String(v).slice(0, 5))
+  return esc(v)
+}
+// what the bot proposes for a gap, never filed until he taps (R128)
+function suggestions(scope, f, o, j) {
+  const p = props[j.id] || {}, out = []
+  if (scope === 'job') {
+    if (f === 'job_number') { if (p.b_number) out.push([p.b_number, `another machine is at ${j.site_name} that day`]); if (p.next_number) out.push([String(p.next_number), 'the next free number']) }
+    if (f === 'engine_hours_start' && p.engine_start != null) out.push([n1(p.engine_start), `${j.machine_code}'s last reading — ${longDay(p.engine_day)}, #${p.engine_card}`])
+    if (f === 'crane_line' && j.machine_code && p.last_end) { const d0 = j.days.map(d => d.day_date).sort()[0]; out.push(p.last_end === placeOf(j) ? [`Truck (${j.machine_code}): Machine already on site`, `${j.machine_code} ended at ${p.last_end}`] : [`Truck (${j.machine_code}) (${cardDate(d0, true)}): Ahmed (from ${p.last_end})`, `${j.machine_code} ended at ${p.last_end} — change the date or the driver after`]) }
+    if (f === 'agent' && p.site_agent) out.push([p.site_agent, `on #${p.site_card}, the last card at this site`])
+    if (f === 'client' && p.site_client) out.push([p.site_client, `on #${p.site_card}, the last card at this site`])
+    if (f === 'maps_pin_url' && p.site_pin) out.push([p.site_pin, 'the pin on file for this site'])
+  } else {
+    if (f === 'start_line') { const prev = j.days.filter(d => d.day_date < o.day_date).sort((a, b) => a.day_date < b.day_date ? 1 : -1)[0]; if (prev || !p.last_end || p.last_end === placeOf(j)) out.push([placeOf(j), 'where the job is']); else out.push([`${p.last_end} > ${placeOf(j)}`, `${j.machine_code} ended at ${p.last_end}; location 2 is the title’s`]) }
+    if (f === 'reporting_time') { const prev = j.days.filter(d => d.id !== o.id && d.reporting_time).sort((a, b) => a.day_date < b.day_date ? 1 : -1)[0]; if (prev) out.push([String(prev.reporting_time).slice(0, 5), `as ${longDay(prev.day_date)}`]) }
+  }
+  return out
+}
+function editorHtml(scope, f, label, o, j) {
+  const cur = empty(o[f]) ? '' : f.startsWith('engine') ? n1(o[f]) : f === 'reporting_time' ? String(o[f]).slice(0, 5) : String(o[f])
+  const sug = suggestions(scope, f, o, j).filter(x => x[0] !== cur).map(([v, why]) => `<button class="pick use" data-use="${esc(v)}">Use ${esc(v)}<br><span class="why">${esc(why)}</span></button>`).join('')
+  let body
+  if (f === 'machine_code') body = `<div class="picks">${(cal.machines || MORDER).filter(m => m !== 'TRK').map(m => `<button class="pick" data-val="${m}" aria-pressed="${o[f] === m}">${m}</button>`).join('')}<button class="pick" data-val="">Not yet</button></div>`
+  else if (f === 'site') body = `<input id="ed-in" autocomplete="off" placeholder="Search the sites…"><div class="picks" id="ed-sites"></div><div class="why">A new site? Type its name, then its area:</div><div class="line"><input id="ed-area" autocomplete="off" placeholder="Area (for a new site)"><button class="act yes" data-savesite="1">Save as new</button></div>`
+  else if (f === 'client') body = `<div class="picks">${(lists.clients || []).slice(0, 10).map(c => `<button class="pick" data-val="${esc(c)}" aria-pressed="${o[f] === c}">${esc(c)}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="M"><button class="act yes" data-save="1">Save</button></div>`
+  else if (f === 'casting') { const day = scope === 'day', on = new Set(cur.split('/').map(x => x.trim()).filter(Boolean)); body = `<div class="picks" id="ed-multi">${(lists.castings || []).map(c => { const v = day ? c.name : c.code; return `<button class="pick" data-multi="${esc(v)}" aria-pressed="${on.has(v)}">${day ? esc(c.name) : esc(c.code) + ' · ' + esc(c.name)}</button>` }).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="${day ? 'Columns/Slab' : 'C/S'}"><button class="act yes" data-save="1">Save</button></div>` }
+  else if (f === 'agent') body = `<div class="picks">${(lists.agents || []).slice(0, 12).map(a => `<button class="pick" data-val="${esc(a)}" aria-pressed="${o[f] === a}">${esc(a)}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="Agent"><button class="act yes" data-save="1">Save</button></div>`
+  else if (f === 'notes') body = `<textarea id="ed-in" autocomplete="off">${esc(cur)}</textarea><button class="act yes" data-save="1">Save</button>`
+  else body = `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" ${f.startsWith('engine') ? 'inputmode="decimal" placeholder="1,268.1"' : f === 'reporting_time' ? 'type="time"' : f === 'job_number' ? 'inputmode="text" placeholder="1192"' : f === 'maps_pin_url' ? 'inputmode="url" placeholder="https://maps.app.goo.gl/…"' : f === 'start_line' ? `placeholder="${esc(placeOf(j))}"` : f === 'end_line' ? 'placeholder="Westlands - Golden Mansion"' : ''}><button class="act yes" data-save="1">Save</button></div>`
+  return `<div class="editor" data-scope="${scope}" data-f="${f}" data-id="${o.id}"><div class="k">${label}</div>${sug ? `<div class="picks">${sug}</div>` : ''}${body}${!empty(o[f]) && f !== 'site' ? '<button class="act quiet" data-val="" style="justify-self:start">Clear it</button>' : ''}</div>`
+}
+function shellHtml(j) {
+  const rowOf = (scope, f, label, o) => editing && editing.scope === scope && editing.f === f && editing.id === o.id ? editorHtml(scope, f, label, o, j)
+    : `<button class="frow" data-edit="${scope}:${f}:${o.id}"><span class="k">${label}</span><span class="v">${valueOf(scope, f, o, j)}</span></button>`
+  const g = gapsOf(j), last = j.days.map(d => d.day_date).sort().pop(), next = isoDay(new Date(atNoon(last).getTime() + 86400e3)), firstDay = j.days.map(d => d.day_date).sort()[0], before = isoDay(new Date(atNoon(firstDay).getTime() - 86400e3))
+  return `<h2>${esc(j.site_name)}${j.area_name ? ` · ${esc(j.area_name)}` : ''}</h2>
+    <div class="meta" style="margin:6px 0 0">${j.status === 'done' ? '<span class="chip done">✓ finished</span>' : j.status === 'started' ? '<span class="chip info">Under way</span>' : '<span class="chip">Planned</span>'}${g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : '<span class="chip done">✓ shell filled</span>'}${j.source !== 'owner' ? `<span class="chip">from ${esc(j.source)}</span>` : ''}</div>
+    <div class="titleline">${titleLine(j)}</div>
+    <div class="secth"><span>The job</span><span>tap a line to change it</span></div>
+    ${JOB_ROWS.map(([f, label]) => rowOf('job', f, label, j)).join('')}
+    ${[...j.days].sort((a, b) => a.day_date < b.day_date ? -1 : 1).map(d => `<div class="secth"><span>${d.kind === 'setting' ? 'Day 0 (setting)' : 'Day ' + d.day_no} · ${longDay(d.day_date)}${d.shift === 'night' ? ' · night' : ''}</span>${j.days.length > 1 ? `<button class="act quiet" data-dropday="${d.id}" style="min-height:30px;padding:2px 8px;font-size:12.5px">Take this day off</button>` : ''}</div>${DAY_ROWS.map(([f, label]) => rowOf('day', f, label, d)).join('')}`).join('')}
+    <div class="acts"><button class="act" data-addday="${next}">+ Day on ${longDay(next)}</button>${j.days.some(d => d.day_no === 0) ? '' : `<button class="act quiet" data-addday="${before}" data-setting="1">+ Day 0 (setting) on ${longDay(before)}</button>`}</div>
+    <div class="sheet-actions" style="grid-template-columns:auto auto 1fr">${j.status === 'done' ? `<button class="act quiet" data-status="started">Not finished</button>` : `<button class="act quiet" data-status="cancelled">Cancel the job</button>`}${j.status !== 'done' ? '<button class="act quiet" data-status="done">Mark finished</button>' : '<span></span>'}<button class="act yes" data-close="1">Done</button></div>`
+}
+async function loadProps(j) { const first = j.days.map(d => d.day_date).sort()[0]; const { data } = await api(`proposals&machine=${encodeURIComponent(j.machine_code || '')}&day=${first}&site=${j.site_id || ''}`).catch(() => ({ data: {} })); props[j.id] = data || {} }
+function drawShell() { const j = cal.jobs.find(x => x.id === shellJob); if (!j) { $('job').close(); return } const top = $('job').scrollTop; $('job-body').innerHTML = shellHtml(j); $('job').scrollTop = top; if (editing && editing.f === 'site') siteSearch() }
+async function openShell(id) {
+  shellJob = id; plan = null; editing = null
+  const j = cal.jobs.find(x => x.id === id); if (!j) return
+  $('job-body').innerHTML = shellHtml(j); if (!$('job').open) $('job').showModal()
+  await Promise.all([needLists(), loadProps(j)]); if (shellJob === id && !plan) drawShell()
+}
+function siteSearch() {
+  const el = $('ed-sites') || $('plan-sites'), inp = $('ed-in') || $('plan-site'); if (!el || !inp) return
+  const qy = inp.value.trim().toLowerCase(), hits = !qy ? [] : (lists.sites || []).filter(x => (x.name + ' ' + (x.area || '')).toLowerCase().includes(qy)).slice(0, 8)
+  el.innerHTML = hits.map(x => `<button class="pick" data-site="${x.id}" aria-pressed="${plan && plan.site_id === x.id}">${esc(x.name)}${x.area ? ' · ' + esc(x.area) : ''}</button>`).join('') || (qy ? '<span class="why">No site in the file by that name — it will be kept as a new site.</span>' : '')
+}
+async function saveField(scope, f, id, value) {
+  const body = scope === 'job' ? { action: 'job_set', job: shellJob, field: f, value } : { action: 'job_day_set', day_id: id, field: f, value }
+  const ok = await jobSay(body); if (!ok) return
+  editing = null
+  const j = cal.jobs.find(x => x.id === shellJob); if (j && (f === 'machine_code' || f === 'site')) await loadProps(j)
+  drawShell()
+}
+
+// ── planning a job: the date and shift, the site (or a new one: name + area, a pin if he has it), what he already knows ──
+function planHtml() {
+  const p = plan, pr = p.props || {}
+  const chip = (f, v) => `<button class="pick" data-pf="${f}" data-pv="${esc(v)}" aria-pressed="${p[f] === v}">${esc(v)}</button>`
+  const cast = new Set(String(p.casting || '').split('/').filter(Boolean))
+  return `<h2>Plan a job</h2><p class="hint">The date and the site make the job; everything else can wait for the day. The machine is chosen when you know it.</p>
+    <div class="two"><div><div class="label" style="margin-top:0">Date</div><input type="date" id="plan-date" value="${p.date}"></div><div><div class="label" style="margin-top:0">Reporting time</div><input type="time" id="plan-rt" value="${esc(p.reporting_time || '')}"></div></div>
+    <div class="picks" style="margin-top:8px">${['day', 'night'].map(x => `<button class="pick" data-pf="shift" data-pv="${x}" aria-pressed="${p.shift === x}">${x === 'day' ? 'Day shift' : 'Night shift'}</button>`).join('')}</div>
+    <div class="label">Site</div><input id="plan-site" autocomplete="off" placeholder="Search the sites, or type a new one" value="${esc(p.site_text || '')}">
+    <div class="picks" id="plan-sites" style="margin-top:6px"></div>
+    ${p.site_id ? '' : `<div class="two" style="margin-top:8px"><input id="plan-area" autocomplete="off" list="areas" placeholder="Area (a new site)" value="${esc(p.area_name || '')}"><input id="plan-pin" autocomplete="off" inputmode="url" placeholder="Maps pin (optional)" value="${esc(p.maps_pin_url || '')}"></div><datalist id="areas">${(lists.areas || []).map(a => `<option value="${esc(a)}">`).join('')}</datalist>`}
+    <div class="label">Client${pr.site_client ? ` <span class="why">· #${esc(pr.site_card)} here was [${esc(pr.site_client)}]</span>` : ''}</div><div class="picks">${(lists.clients || []).slice(0, 8).map(c => chip('client', c)).join('')}</div>
+    <div class="label">Casting</div><div class="picks">${(lists.castings || []).map(c => `<button class="pick" data-pcast="${esc(c.code)}" aria-pressed="${cast.has(c.code)}">${esc(c.code)} · ${esc(c.name)}</button>`).join('')}</div>
+    <div class="label">Agent${pr.site_agent ? ` <span class="why">· #${esc(pr.site_card)} here was ${esc(pr.site_agent)}</span>` : ''}</div><div class="picks">${[...new Set([pr.site_agent, ...(lists.agents || []).slice(0, 8)].filter(Boolean))].map(a => chip('agent', a)).join('')}</div>
+    <div class="label">Machine <span class="why">· leave it for the day if you don’t know yet</span></div><div class="picks">${MORDER.filter(m => m !== 'TRK').map(m => chip('machine_code', m)).join('')}</div>
+    <div class="preview" aria-live="polite">${p.site_id || (p.site_text || '').trim() ? `#? [${esc(p.client || '?')}] (${esc(p.machine_code || '?')}) {${esc(p.casting || '?')}} - ${cardDate(p.date)} ${esc(p.site_id ? p.site_name + (p.area_name ? ' ' + p.area_name : '') : (p.site_text || '').trim() + (p.area_name ? ' ' + p.area_name : ''))}` : 'Pick the site.'}</div>
+    <div class="sheet-actions"><button class="act quiet" data-close="1">Cancel</button><button class="act yes" data-planit="1" ${p.site_id || (p.site_text || '').trim() ? '' : 'disabled'}>Plan it</button></div>`
+}
+function keepPlanInputs() { if (!plan) return; const g = id => $(id) ? $(id).value : undefined; const d = g('plan-date'), rt = g('plan-rt'), st = g('plan-site'), ar = g('plan-area'), pin = g('plan-pin'); if (d) plan.date = d; if (rt !== undefined) plan.reporting_time = rt; if (st !== undefined) plan.site_text = st; if (ar !== undefined) plan.area_name = ar; if (pin !== undefined) plan.maps_pin_url = pin }
+function drawPlan(focusSite) { const top = $('job').scrollTop; $('job-body').innerHTML = planHtml(); $('job').scrollTop = top; siteSearch(); if (focusSite) { const i = $('plan-site'); i.focus(); i.setSelectionRange(i.value.length, i.value.length) } }
+async function openPlan(date) {
+  shellJob = null; editing = null
+  plan = { date: date || (cal && cal.today), shift: 'day', site_id: null, site_name: null, area_name: '', site_text: '', maps_pin_url: '', client: null, casting: '', agent: null, machine_code: null, reporting_time: '', props: {} }
+  $('job-body').innerHTML = '<h2>Plan a job</h2><p class="hint">Opening…</p>'; if (!$('job').open) $('job').showModal()
+  await needLists(); if (plan) drawPlan()
+}
+$('job').addEventListener('input', e => {
+  if (e.target.id === 'ed-in' && editing && editing.f === 'site') return siteSearch()
+  if (e.target.id === 'plan-site' && plan) { plan.site_text = e.target.value; if (plan.site_id) { plan.site_id = null; plan.site_name = null; plan.area_name = ''; plan.props = {}; return drawPlan(true) } siteSearch(); const pv = document.querySelector('#job .preview'), btn = document.querySelector('#job [data-planit]'); if (btn) btn.disabled = !plan.site_text.trim(); return }
+  if (plan && ['plan-date', 'plan-area'].includes(e.target.id)) { keepPlanInputs(); const pv = document.querySelector('#job .preview'); if (pv && (plan.site_id || plan.site_text.trim())) pv.textContent = `#? [${plan.client || '?'}] (${plan.machine_code || '?'}) {${plan.casting || '?'}} - ${cardDate(plan.date)} ${plan.site_id ? plan.site_name + (plan.area_name ? ' ' + plan.area_name : '') : plan.site_text.trim() + (plan.area_name ? ' ' + plan.area_name : '')}` }
+})
+$('job').addEventListener('click', async e => {
+  if (e.target === $('job')) { $('job').close(); return }   // the backdrop
+  const b = e.target.closest('button'); if (!b) return
+  e.stopPropagation()
+  if (b.dataset.close) { $('job').close(); return }
+  // ── planning ──
+  if (plan) {
+    keepPlanInputs()
+    if (b.dataset.site) { const st = (lists.sites || []).find(x => String(x.id) === b.dataset.site); if (!st) return; plan.site_id = st.id; plan.site_name = st.name; plan.area_name = st.area || ''; plan.site_text = st.name; const { data } = await api(`proposals&machine=&day=${plan.date}&site=${st.id}`).catch(() => ({ data: {} })); if (!plan) return; plan.props = data || {}; if (data && data.site_pin) plan.maps_pin_url = data.site_pin; return drawPlan() }
+    if (b.dataset.pf) { plan[b.dataset.pf] = plan[b.dataset.pf] === b.dataset.pv && b.dataset.pf !== 'shift' ? null : b.dataset.pv; return drawPlan() }
+    if (b.dataset.pcast) { const set = new Set(String(plan.casting || '').split('/').filter(Boolean)); set.has(b.dataset.pcast) ? set.delete(b.dataset.pcast) : set.add(b.dataset.pcast); plan.casting = [...set].join('/'); return drawPlan() }
+    if (b.dataset.planit) {
+      b.disabled = true
+      const body = { action: 'job_new', date: plan.date, shift: plan.shift, reporting_time: plan.reporting_time || null, client: plan.client, casting: plan.casting || null, agent: plan.agent, machine_code: plan.machine_code, maps_pin_url: plan.maps_pin_url || null, ...(plan.site_id ? { site_id: plan.site_id } : { site_name: plan.site_text.trim(), area_name: (plan.area_name || '').trim() }) }
+      const date = plan.date, out = await jobSay(body)
+      if (!out) { b.disabled = false; return }
+      toast(out.reply || '✓ Planned'); calSel = date; if (date.slice(0, 7) !== calMonth) { calMonth = date.slice(0, 7); await loadCal() }
+      plan = null; if (out.job && cal.jobs.some(x => x.id === out.job)) return openShell(out.job)
+      $('job').close(); return
+    }
+    return
+  }
+  // ── the shell ──
+  const j = cal.jobs.find(x => x.id === shellJob); if (!j) return
+  if (b.dataset.edit) { const [scope, f, id] = b.dataset.edit.split(':'); editing = { scope, f, id: Number(id) }; await needLists(); drawShell(); const i = $('ed-in'); if (i && !['client', 'agent', 'casting'].includes(f)) i.focus(); return }
+  if (b.dataset.status) { b.disabled = true; const out = await jobSay({ action: 'job_set', job: j.id, field: 'status', value: b.dataset.status }); if (out && b.dataset.status === 'cancelled') { toast('✓ The job is cancelled — it is off the calendar.'); $('job').close(); return } return drawShell() }
+  if (b.dataset.addday) { b.disabled = true; const out = await jobSay({ action: 'job_day_add', job: j.id, date: b.dataset.addday, kind: b.dataset.setting ? 'setting' : 'job' }); if (out) toast(out.reply); return drawShell() }
+  if (b.dataset.dropday) { b.disabled = true; const out = await jobSay({ action: 'job_day_drop', day_id: Number(b.dataset.dropday) }); if (out) toast(out.reply); return drawShell() }
+  const ed = b.closest('.editor'); if (!ed) return
+  const scope = ed.dataset.scope, f = ed.dataset.f, id = Number(ed.dataset.id)
+  if (b.dataset.multi !== undefined) { const set = new Set($('ed-in').value.split('/').map(x => x.trim()).filter(Boolean)); set.has(b.dataset.multi) ? set.delete(b.dataset.multi) : set.add(b.dataset.multi); $('ed-in').value = [...set].join('/'); b.setAttribute('aria-pressed', String(set.has(b.dataset.multi))); return }
+  b.disabled = true
+  if (b.dataset.site) return saveField('job', 'site', id, { site_id: Number(b.dataset.site) })
+  if (b.dataset.savesite) { const name = $('ed-in').value.trim(); if (!name) { b.disabled = false; return toast('Type the site’s name first.') } return saveField('job', 'site', id, { site_name: name, area_name: $('ed-area').value.trim() }) }
+  if (b.dataset.use !== undefined) return saveField(scope, f, id, b.dataset.use)
+  if (b.dataset.val !== undefined) return saveField(scope, f, id, b.dataset.val || null)
+  if (b.dataset.save) return saveField(scope, f, id, $('ed-in').value.trim() || null)
+})
+$('job').addEventListener('close', () => { shellJob = null; plan = null; editing = null; if (dept === 'jobs') renderJobs() })
+
 function focusMsg(id) { dept = 'all'; filters.all = 'all'; render(); const el = document.querySelector(`[id^="m${id}-"]`); if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 2500) } }
 
 // ── answering ──
@@ -482,7 +762,10 @@ async function say(body, quiet) {
 }
 document.addEventListener('click', async e => {
   const b = e.target.closest('button'), art = e.target.closest('.item.solved')
-  if (b?.dataset.d) { dept = b.dataset.d; scroller.scrollTop = 0; return render() }
+  if (b?.dataset.d) { dept = b.dataset.d; scroller.scrollTop = 0; render(); if (dept === 'jobs') loadCal(); return }
+  if (b?.dataset.cell) { calSel = b.dataset.cell; if (calSel.slice(0, 7) !== calMonth) { calMonth = calSel.slice(0, 7); return loadCal() } return renderJobs() }
+  if (b?.dataset.job) return openShell(Number(b.dataset.job))
+  if (b?.dataset.plan) return openPlan(b.dataset.plan)
   if (b?.dataset.f) { filters[dept] = b.dataset.f; scroller.scrollTop = 0; return render() }
   if (b?.dataset.owed) { const id = Number(b.dataset.owed); owedSel.has(id) ? owedSel.delete(id) : owedSel.add(id); return render() }
   if (b?.dataset.owedact) {
@@ -591,7 +874,7 @@ new ResizeObserver(headRoom).observe($('bar')); headRoom()
 const settle = () => { if (window.scrollY || window.scrollX) window.scrollTo(0, 0) }
 addEventListener('focusout', () => setTimeout(settle, 60))
 window.visualViewport?.addEventListener('resize', () => { if (!document.activeElement || !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) settle() })
-$('fab').onclick = () => openSheet()
+$('fab').onclick = () => dept === 'jobs' ? openPlan(calSel || (cal && cal.today)) : openSheet()
 $('ask').onclick = () => openSheet({ ask: true })
 $('cancel').onclick = () => $('sheet').close()
 for (const id of ['amount', 'who', 'free', 'long', 'from', 'to']) $(id).oninput = preview
