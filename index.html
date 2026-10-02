@@ -493,7 +493,19 @@ function owedHtml() {
       <div class="picks" style="margin-top:10px">${os.map(o => `<button class="pick" data-owed="${o.id}" aria-pressed="${owedSel.has(o.id)}">${esc(o.staff_name)} · ${kes(o.amount_ksh)}</button>`).join('')}</div>
       <div class="acts"><button class="act" data-owedact="change" data-g="${esc(k)}">Change purpose</button><button class="act quiet" data-owedact="paid" data-g="${esc(k)}">Paid already</button><button class="act quiet" data-owedact="dismiss" data-g="${esc(k)}">Not owed</button></div>
       <div class="was">${n ? `${n} picked` : 'for all of them — or tap names to pick some'}</div></section>` }
-  return part('Owed to staff — allowances on the registers', c => allow.has(c)) + part('Works the registers say were paid for', c => !allow.has(c))
+  return part('Owed to staff — allowances on the registers', c => allow.has(c)) + part('Works the registers say were paid for', c => !allow.has(c)) + markedHtml()
+}
+// the lines his own taps marked paid or not owed this week (no payment behind them): a slip is undone here (the owner, 3 Oct 2026:
+// "i accidentally clicked "paid already" … if i pay now will it still match them?" · "yes please")
+function markedHtml() {
+  const rows = feed.owed_marked || []; if (!rows.length) return ''
+  const kinds = feed.kinds || {}, gs = new Map()
+  for (const o of rows) { const k = [o.machine_code, o.day_date, o.cost_code, o.status].join('|'); if (!gs.has(k)) gs.set(k, []); gs.get(k).push(o) }
+  return `<div class="group"><span>Marked by you — undo a slip</span><span>${rows.length}</span></div>` + [...gs.entries()].map(([k, os]) => {
+    const [m, d, c, st] = k.split('|'), sum = os.reduce((a, o) => a + Number(o.amount_ksh), 0)
+    return `<section class="item solved open"><div class="meta"><span class="chip">${st === 'paid' ? 'Paid already' : 'Not owed'}</span><span>${esc(m)} · ${dayName(d)}</span></div>
+      <div class="what">${esc(kinds[c] || c)} — ${os.map(o => esc(o.staff_name)).join(', ')} · KES ${kes(sum)}</div>
+      <div class="acts"><button class="act quiet" data-owedundo="${os.map(o => o.id).join(',')}">Undo — owed again</button></div></section>` }).join('')
 }
 const showsBoards = f => f !== 'solved' && f !== 'asked'
 function boards(f) {
@@ -802,6 +814,7 @@ document.addEventListener('click', async e => {
     if (ok) ids.forEach(i => owedSel.delete(i))
     return
   }
+  if (b?.dataset.owedundo) { b.disabled = true; await say({ action: 'owed_undo', ids: b.dataset.owedundo.split(',').map(Number) }); return }
   if (b?.dataset.share) { const r = feed.rows.find(x => String(x.id) === b.dataset.share); if (r) { if (navigator.share) navigator.share({ text: r.body }).catch(() => {}); else { await navigator.clipboard.writeText(r.body); toast('Copied') } } return }
   if (b?.dataset.reopen) { const t = things.find(x => x.key === b.dataset.reopen); if (!t) return; b.disabled = true; opened.delete(t.key); await say({ action: 'reopen', id: t.r.id, item: t.item }); return }
   if (b?.dataset.k) {
