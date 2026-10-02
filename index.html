@@ -686,18 +686,22 @@ function shellHtml(j) {
     : `<button class="frow" data-edit="${scope}:${f}:${o.id}"><span class="k">${label}</span><span class="v">${valueOf(scope, f, o, j)}</span></button>`
   const g = gapsOf(j), last = j.days.map(d => d.day_date).sort().pop(), next = isoDay(new Date(atNoon(last).getTime() + 86400e3)), firstDay = j.days.map(d => d.day_date).sort()[0], before = isoDay(new Date(atNoon(firstDay).getTime() - 86400e3))
   return `<h2>${esc(j.site_name)}${j.area_name ? ` · ${esc(j.area_name)}` : ''}</h2>
-    <div class="meta" style="margin:6px 0 0">${j.status === 'done' ? '<span class="chip done">✓ finished</span>' : j.status === 'started' ? '<span class="chip info">Under way</span>' : '<span class="chip">Planned</span>'}${g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : '<span class="chip done">✓ shell filled</span>'}${j.source !== 'owner' ? `<span class="chip">from ${esc(j.source)}</span>` : ''}</div>
+    <div class="meta" style="margin:6px 0 0">${j.status === 'done' ? '<span class="chip done">✓ finished</span>' : j.status === 'missed' ? '<span class="chip need">Missed</span>' : j.status === 'started' ? '<span class="chip info">Under way</span>' : '<span class="chip">Planned</span>'}${g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : '<span class="chip done">✓ shell filled</span>'}${j.source !== 'owner' ? `<span class="chip">from ${esc(j.source)}</span>` : ''}</div>
     <div class="titleline">${titleLine(j)}</div>
     <div class="secth"><span>The job</span><span>tap a line to change it</span></div>
     ${JOB_ROWS.map(([f, label]) => rowOf('job', f, label, j)).join('')}
     ${[...j.days].sort((a, b) => a.day_date < b.day_date ? -1 : 1).map(d => `<div class="secth"><span>${d.kind === 'setting' ? 'Day 0 (setting)' : 'Day ' + d.day_no} · ${longDay(d.day_date)}${d.shift === 'night' ? ' · night' : ''}</span>${j.days.length > 1 ? `<button class="act quiet" data-dropday="${d.id}" style="min-height:30px;padding:2px 8px;font-size:12.5px">Take this day off</button>` : ''}</div>${DAY_ROWS.map(([f, label]) => rowOf('day', f, label, d)).join('')}`).join('')}
     <div class="acts"><button class="act" data-addday="${next}">+ Day on ${longDay(next)}</button>${j.days.some(d => d.day_no === 0) ? '' : `<button class="act quiet" data-addday="${before}" data-setting="1">+ Day 0 (setting) on ${longDay(before)}</button>`}</div>
-    <div class="sheet-actions" style="grid-template-columns:auto auto 1fr">${j.status === 'done' ? `<button class="act quiet" data-status="started">Not finished</button>` : `<button class="act quiet" data-status="cancelled">Cancel the job</button>`}${j.status !== 'done' ? '<button class="act quiet" data-status="done">Mark finished</button>' : '<span></span>'}<button class="act yes" data-close="1">Done</button></div>`
+    ${missedOpen && ['planned', 'started'].includes(j.status) ? `<div class="secth"><span>Missed — no pump for it</span><span>it goes on the missed-jobs record</span></div>
+      <div class="two"><div><div class="label">m³</div><input id="missed-m3" inputmode="decimal" autocomplete="off" value="${esc(String((String(j.casting || '').match(/\d+(?:\.\d+)?/) || [''])[0]))}" placeholder="100"></div><div></div></div>
+      <div class="acts"><button class="act" data-missedkind="hired">We hired a pump</button><button class="act" data-missedkind="lost">Lost the job</button><button class="act quiet" data-missedopen="0">Not missed</button></div>` : ''}
+    <div class="sheet-actions" style="grid-template-columns:auto auto 1fr">${j.status === 'done' ? `<button class="act quiet" data-status="started">Not finished</button>` : j.status === 'missed' ? `<button class="act quiet" data-status="planned">Not missed after all</button>` : `<button class="act quiet" data-status="cancelled">Cancel the job</button>`}${['planned', 'started'].includes(j.status) && !missedOpen ? '<button class="act quiet" data-missedopen="1">Missed</button>' : j.status !== 'done' && j.status !== 'missed' ? '<button class="act quiet" data-status="done">Mark finished</button>' : '<span></span>'}<button class="act yes" data-close="1">Done</button></div>`
 }
+let missedOpen = false   // the "Missed" row of the shell (W30): hired a pump, or lost; the m³ from the casting line
 async function loadProps(j) { const first = j.days.map(d => d.day_date).sort()[0]; const { data } = await api(`proposals&machine=${encodeURIComponent(j.machine_code || '')}&day=${first}&site=${j.site_id || ''}`).catch(() => ({ data: {} })); props[j.id] = data || {} }
 function drawShell() { const j = cal.jobs.find(x => x.id === shellJob); if (!j) { $('job').close(); return } const top = $('job').scrollTop; $('job-body').innerHTML = shellHtml(j); $('job').scrollTop = top; if (editing && editing.f === 'site') siteSearch() }
 async function openShell(id) {
-  shellJob = id; plan = null; editing = null
+  shellJob = id; plan = null; editing = null; missedOpen = false
   const j = cal.jobs.find(x => x.id === id); if (!j) return
   $('job-body').innerHTML = shellHtml(j); if (!$('job').open) $('job').showModal()
   await Promise.all([needLists(), loadProps(j)]); if (shellJob === id && !plan) drawShell()
@@ -771,6 +775,8 @@ $('job').addEventListener('click', async e => {
   // ── the shell ──
   const j = cal.jobs.find(x => x.id === shellJob); if (!j) return
   if (b.dataset.edit) { const [scope, f, id] = b.dataset.edit.split(':'); editing = { scope, f, id: Number(id) }; await needLists(); drawShell(); const i = $('ed-in'); if (i && !['client', 'agent', 'casting'].includes(f)) i.focus(); return }
+  if (b.dataset.missedopen) { missedOpen = b.dataset.missedopen === '1'; return drawShell() }
+  if (b.dataset.missedkind) { b.disabled = true; const out = await jobSay({ action: 'job_missed', job: j.id, hired: b.dataset.missedkind === 'hired', m3: $('missed-m3').value }); if (out) { toast(out.reply); missedOpen = false } return drawShell() }
   if (b.dataset.status) { b.disabled = true; const out = await jobSay({ action: 'job_set', job: j.id, field: 'status', value: b.dataset.status }); if (out && b.dataset.status === 'cancelled') { toast('✓ The job is cancelled — it is off the calendar.'); $('job').close(); return } return drawShell() }
   if (b.dataset.addday) { b.disabled = true; const out = await jobSay({ action: 'job_day_add', job: j.id, date: b.dataset.addday, kind: b.dataset.setting ? 'setting' : 'job' }); if (out) toast(out.reply); return drawShell() }
   if (b.dataset.dropday) { b.disabled = true; const out = await jobSay({ action: 'job_day_drop', day_id: Number(b.dataset.dropday) }); if (out) toast(out.reply); return drawShell() }
