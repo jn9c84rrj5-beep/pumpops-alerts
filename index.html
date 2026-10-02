@@ -82,6 +82,9 @@
   .seg .n:empty { display: none; }
   #n-p { background: var(--badge); color: var(--badge-on); }
   #n-i { background: var(--info); color: var(--info-on); }
+  #n-f { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 4px; border-radius: 999px; font-size: 10.5px; font-weight: 700; background: var(--badge); color: var(--badge-on); }
+  #n-f:empty { display: none; }
+  #facets .pick { font-size: 12.5px; min-height: 32px; padding: 4px 10px; }
   #n-s { background: var(--primary); color: var(--primary-on); }
   .chip.need { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 45%, transparent); }
   .chip.done { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 45%, transparent); }
@@ -241,7 +244,7 @@
 <body>
 <div id="shade" aria-hidden="true"></div>
 <header id="bar" hidden><div class="head glass">
-  <div class="title-row"><h1 id="title"></h1><div class="title-side"><span class="date" id="date"></span><button class="ask" id="ask">Ask</button></div></div>
+  <div class="title-row"><h1 id="title"></h1><div class="title-side"><span class="date" id="date"></span><button class="ask" id="filt" aria-label="Filter">Filter<span class="n" id="n-f"></span></button><button class="ask" id="ask">Ask</button></div></div>
   <p class="brief" id="brief"></p>
   <div class="seg" role="group" aria-label="Show">
     <button data-f="pending" aria-pressed="true">Needs you<span class="n" id="n-p"></span></button>
@@ -249,12 +252,22 @@
     <button data-f="solved" aria-pressed="false">Solved<span class="n" id="n-s"></span></button>
     <button data-f="all" aria-pressed="false">All</button>
   </div>
+  <div class="picks" id="facets" hidden style="margin-top:10px"></div>
   <div class="calnav" id="calnav" hidden><button class="arrow" id="cal-prev" aria-label="The month before">‹</button><button class="month" id="cal-month"></button><button class="arrow" id="cal-next" aria-label="The month after">›</button><button class="ask" id="cal-today">Today</button></div>
 </div></header>
 <div id="scroll"><main id="main"></main></div>
 <button class="fab glass" id="fab" hidden>+ Say a cost</button>
 <nav class="glass" aria-label="Departments" id="nav" hidden></nav>
 
+<dialog id="filter" aria-labelledby="filter-title">
+  <h2 id="filter-title">Show only</h2>
+  <p class="hint">Any mix — a machine, a man, a job, a kind of thing. The counts follow the filter; the bottom bar does not.</p>
+  <div class="label">Machine</div><div class="picks" id="f-machine"></div>
+  <div class="label">Man</div><div class="picks" id="f-who"></div>
+  <div class="label">Job</div><div class="picks" id="f-job"></div>
+  <div class="label">Kind</div><div class="picks" id="f-kind"></div>
+  <div class="sheet-actions"><button class="act quiet" id="f-clear">Clear all</button><button class="act yes" id="f-done">Done</button></div>
+</dialog>
 <dialog id="sheet" aria-labelledby="sheet-title">
   <h2 id="sheet-title">Say a cost</h2>
   <p class="hint" id="sheet-hint"></p>
@@ -397,7 +410,35 @@ function derive() {
     else add(0, { head: '', what: first, more: rest.join('\n'), buttons: null, plain })
   }
 }
-const mine = (d = dept) => things.filter(t => d === 'all' || t.dept === d)
+// FILTERS ON EVERY PAGE (the owner, 3 Oct 2026: "i need machine, staff, and job (number+site) filters for every page on the bot app.
+// actually, also a filter for item/issue/report type"): what a thing is about — its machine, the men named in it, the planned job
+// on that machine-day, and its kind — and the four facets he can set, in any mix
+const facet = { machine: null, who: null, job: null, kind: null }
+const KIND_OF_CODE = [['ENGINE', 'Engine hours'], ['S_ENGINE', 'Engine hours'], ['PLATE', 'Plates'], ['CUMULATIVE', 'Totals'], ['VOLUME', 'Totals'], ['MIXER', 'Totals'], ['STAFF', 'ID numbers'], ['PAYEE', 'ID numbers'], ['EQUIPMENT', 'Kit'], ['TRANSFER', 'Kit'], ['SITE_STOCK', 'Kit'], ['REGISTER', 'Registers'], ['TRUCK', 'Truck lines'], ['NO_PLANNED', 'Planned jobs'], ['FUEL', 'Fuel']]
+const KIND_OF_MARK = { '⏱': 'Engine hours', '🚨': 'Engine hours', '⛽': 'Fuel', '🧱': 'Kit', '💬': 'Private answers', '🗑': 'Deleted messages', '📥': 'Received', '🧾': 'Payments', '💸': 'Payments', '🧭': 'Planned jobs', '📝': 'Registers' }
+function kindOf(t) {
+  const fp = t.buttons && t.buttons[0] && t.buttons[0].fp
+  if (fp) { const code = String(fp).split('|')[0]; const hit = KIND_OF_CODE.find(([k]) => code.startsWith(k)); return hit ? hit[1] : code.toLowerCase().replace(/_/g, ' ') }
+  const p = t.r.purpose
+  if (p === 'mpesa') return 'Payments'
+  if (p === 'receipt') return 'Received'
+  if (p === 'summary') return 'Summary'
+  if (p === 'reply') return 'Replies'
+  const mark = String(t.r.body || '').trim().slice(0, 2)
+  for (const [m, k] of Object.entries(KIND_OF_MARK)) if (mark.startsWith(m)) return k
+  return t.r.department === 'fuel' ? 'Fuel' : t.r.department === 'money' ? 'Payments' : t.r.department === 'kit' ? 'Kit' : 'Other'
+}
+function whoOf(t) {
+  const men = feed.men || [], text = `${t.head || ''} ${t.what || ''} ${t.more || ''} ${t.r.body || ''}`
+  const hit = men.filter(m => text.includes(m.name))
+  if (hit.length) return hit.map(m => m.name)
+  const firsts = men.map(m => ({ m, first: m.name.replace(/^\d/, '').split(' ')[0] }))
+  return firsts.filter(({ first }) => first.length > 2 && new RegExp(`\\b${first}\\b`).test(text)).filter(({ first }) => firsts.filter(x => x.first === first).length === 1).map(({ m }) => m.name)
+}
+const jobOf = t => { const j = (feed.jobs || []).find(x => x.machine === t.r.machine_code && x.day === t.r.day_date); return j ? `#${j.job_number || '?'} · ${j.site}` : null }
+const facetOk = t => (!facet.machine || t.r.machine_code === facet.machine) && (!facet.who || whoOf(t).includes(facet.who)) && (!facet.job || jobOf(t) === facet.job) && (!facet.kind || kindOf(t) === facet.kind)
+const facetsOn = () => Object.values(facet).filter(Boolean).length
+const mine = (d = dept, filtered = true) => things.filter(t => (d === 'all' || t.dept === d) && (!filtered || facetOk(t)))
 const pending = d => mine(d).filter(t => t.needs && !t.solved)
 const waiting = d => pending(d).filter(t => t.asked)
 const todo = d => pending(d).filter(t => !t.asked)
@@ -464,10 +505,10 @@ function everything() {
   const flush = () => { if (run.length) { html += `<div class="rows">${run.map(r => `<div class="row" id="m${r.id}-0"><time>${hm(r.created_at)}</time><span class="txt">${esc(String(r.body).replace(/^📥\s*/u, ''))}</span></div>`).join('')}</div>`; run = [] } }
   for (const r of feed.rows) {
     if (dept !== 'all' && r.department !== dept) continue
-    if (r.purpose === 'receipt') { run.push(r); continue }
+    if (r.purpose === 'receipt') { if (facetOk({ r, head: '', what: r.body, more: '', buttons: null })) run.push(r); continue }
     flush()
-    if (r.purpose === 'summary') { html += `<div class="group"><span>Summary · ${hm(r.created_at)}</span><span>by machine</span></div>` + sumCard(r); continue }
-    html += (byRow.get(r.id) || []).map(card).join('')
+    if (r.purpose === 'summary') { if (!facetsOn()) html += `<div class="group"><span>Summary · ${hm(r.created_at)}</span><span>by machine</span></div>` + sumCard(r); continue }
+    html += (byRow.get(r.id) || []).filter(facetOk).map(card).join('')
   }
   flush()
   return html
@@ -528,10 +569,10 @@ function boardsBelow(f) {
       <div class="facts"><span>first <b>${first.pct}% · ${first.hm}</b></span><span>photos <b>${x.marks.length}</b></span><span>refuels <b>${x.refuels}${x.rise ? ` · +${x.rise} pts` : ''}</b></span><span>went down <b>${used} pts${x.litres_per_gauge ? ` ≈ ${Math.round(used * x.litres_per_gauge / 100)} L` : ''}</b></span></div></section>` }).join('')
   return ''
 }
-const navBar = () => { $('nav').innerHTML = Object.entries(DEPTS).map(([k, d]) => { const n = k === 'jobs' ? jobsToFill() : todo(k).length; return `<button class="tab" data-d="${k}" ${k === dept ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span>${d.tab}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>` }).join('') }
+const navBar = () => { $('nav').innerHTML = Object.entries(DEPTS).map(([k, d]) => { const n = k === 'jobs' ? jobsToFill() : mine(k, false).filter(t => t.needs && !t.solved && !t.asked).length; return `<button class="tab" data-d="${k}" ${k === dept ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span>${d.tab}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>` }).join('') }
 function render() {
   const jobsTab = dept === 'jobs'
-  document.querySelector('.seg').hidden = jobsTab; $('calnav').hidden = !jobsTab; $('ask').hidden = jobsTab
+  document.querySelector('.seg').hidden = jobsTab; $('calnav').hidden = !jobsTab; $('ask').hidden = jobsTab; $('filt').hidden = jobsTab; if (jobsTab) $('facets').hidden = true
   $('fab').textContent = jobsTab ? '+ Plan a job' : '+ Say a cost'
   if (jobsTab) return renderJobs()
   const f = filters[dept] || 'pending', p = todo(dept), w = waiting(dept), s = solved(dept)
@@ -539,6 +580,8 @@ function render() {
   $('date').textContent = new Date(feed.now || Date.now()).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hm(feed.now || Date.now())
   $('brief').innerHTML = brief()
   $('n-p').textContent = p.length || ''; $('n-i').textContent = w.length || ''; $('n-s').textContent = s.length || ''
+  $('n-f').textContent = facetsOn() || ''
+  $('facets').hidden = !facetsOn(); $('facets').innerHTML = Object.entries(facet).filter(([, v]) => v).map(([k, v]) => `<button class="pick" aria-pressed="true" data-facet="${k}">${esc(v)} ×</button>`).join('')
   document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.f === f)))
   let html = boards(f)
   // "Ask him" moves a thing to Investigating (the owner, 2 Oct 2026): it leaves Needs you and waits there until it is answered
@@ -936,6 +979,18 @@ addEventListener('focusout', () => setTimeout(settle, 60))
 window.visualViewport?.addEventListener('resize', () => { if (!document.activeElement || !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) settle() })
 $('fab').onclick = () => dept === 'jobs' ? openPlan(calSel || (cal && cal.today)) : openSheet()
 $('ask').onclick = () => openSheet({ ask: true })
+// the filter sheet: the choices are what the things of this department are about
+function openFilter() {
+  const ts = mine(dept, false), opts = (f, of) => { const c = new Map(); for (const t of ts) for (const v of [].concat(of(t) || [])) if (v) c.set(v, (c.get(v) || 0) + 1); return [...c.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]))) }
+  const row = (id, f, list) => { $(id).innerHTML = list.length ? list.map(([v, n]) => `<button class="pick" data-f="${f}" data-v="${esc(v)}" aria-pressed="${facet[f] === v}">${esc(v)} <small>${n}</small></button>`).join('') : '<span class="why">nothing here today</span>' }
+  row('f-machine', 'machine', opts('machine', t => t.r.machine_code)); row('f-who', 'who', opts('who', whoOf)); row('f-job', 'job', opts('job', jobOf)); row('f-kind', 'kind', opts('kind', kindOf))
+  $('filter').showModal()
+}
+$('filt').onclick = openFilter
+$('filter').onclick = e => { const b = e.target.closest('.pick'); if (!b) return; facet[b.dataset.f] = facet[b.dataset.f] === b.dataset.v ? null : b.dataset.v; openFilter(); render() }
+$('f-clear').onclick = () => { for (const k in facet) facet[k] = null; openFilter(); render() }
+$('f-done').onclick = () => $('filter').close()
+$('facets').onclick = e => { const b = e.target.closest('[data-facet]'); if (!b) return; facet[b.dataset.facet] = null; render() }
 $('cancel').onclick = () => $('sheet').close()
 for (const id of ['amount', 'who', 'free', 'long', 'from', 'to']) $(id).oninput = preview
 $('send').onclick = async () => {
