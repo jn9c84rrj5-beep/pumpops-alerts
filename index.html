@@ -675,9 +675,9 @@ async function jobSay(body) {
 }
 
 // ── the shell: the card he would author, its gaps to tap ──
-const JOB_ROWS = [['site', 'Site'], ['client', 'Client'], ['casting', 'Casting'], ['agent', 'Agent'], ['contact', 'Contact'], ['maps_pin_url', 'Maps pin'], ['machine_code', 'Machine'], ['job_number', 'Job number'], ['engine_hours_start', 'Engine hours (start)'], ['crane_line', 'Truck line']]
+const JOB_ROWS = [['site', 'Site'], ['client', 'Client'], ['casting', 'Casting'], ['agent', 'Agent'], ['contact', 'Contact'], ['maps_pin_url', 'Maps pin'], ['machine_code', 'Machine'], ['job_number', 'Job number'], ['engine_hours_start', 'Engine hours (start)'], ['pumping_fee_ksh', 'Pumping fee (a m³)'], ['mobilisation_fee_ksh', 'Mobilisation'], ['crane_line', 'Truck line'], ['crane_price_ksh', 'Crane trip price']]
 const DAY_ROWS = [['reporting_time', 'Reporting time'], ['casting', 'Casting'], ['start_line', 'START'], ['end_line', 'END'], ['engine_hours_end', 'Engine hours (end)'], ['notes', 'NOTES']]
-const OPTIONAL = new Set(['agent', 'contact', 'maps_pin_url', 'casting:day', 'end_line', 'notes'])
+const OPTIONAL = new Set(['agent', 'contact', 'maps_pin_url', 'casting:day', 'end_line', 'notes', 'crane_price_ksh'])   // the crane price defaults to 14,000 (QW-29)
 const placeOf = j => (j.area_name ? j.area_name + ' - ' : '') + j.site_name
 function titleLine(j) {
   const g = t => `<span class="gap">${t}</span>`, first = j.days.filter(d => d.day_no >= 1).map(d => d.day_date).sort()[0] || (j.days[0] || {}).day_date
@@ -686,9 +686,11 @@ function titleLine(j) {
 function valueOf(scope, f, o, j) {
   if (f === 'site') return `${esc(o.site_name)}${o.area_name ? ' · ' + esc(o.area_name) : ''}${o.site_id ? '' : ' <span class="chip need">new site — not in the file yet</span>'}`
   const v = o[f]
+  if (!empty(v) && (f === 'pumping_fee_ksh' || f === 'mobilisation_fee_ksh' || f === 'crane_price_ksh')) return Number(v) === 0 && f === 'mobilisation_fee_ksh' ? 'none' : 'KES ' + Number(v).toLocaleString('en-US') + (f === 'pumping_fee_ksh' ? ' a m³' : '')
   if (empty(v)) {
     if (f === 'engine_hours_end') return `<span class="v ${cal && o.day_date < cal.today ? 'gap' : 'later'}">${cal && o.day_date < cal.today ? 'Tap to fill' : 'at the day’s end'}</span>`
     if (f === 'end_line') return '<span class="v later">END (where the job is) — tap if it moved</span>'
+    if (f === 'crane_price_ksh') return '<span class="v later">KES 14,000 (the default) — tap to change</span>'
     return `<span class="v ${OPTIONAL.has(scope === 'day' && f === 'casting' ? 'casting:day' : f) ? 'later' : 'gap'}">${OPTIONAL.has(scope === 'day' && f === 'casting' ? 'casting:day' : f) ? 'none — tap to add' : 'Tap to fill'}</span>`
   }
   if (f === 'engine_hours_start' || f === 'engine_hours_end') return n1(v)
@@ -703,6 +705,10 @@ function suggestions(scope, f, o, j) {
     if (f === 'engine_hours_start' && p.engine_start != null) out.push([n1(p.engine_start), `${j.machine_code}'s last reading — ${longDay(p.engine_day)}, #${p.engine_card}`])
     if (f === 'crane_line' && j.machine_code && p.last_end) { const d0 = j.days.map(d => d.day_date).sort()[0]; out.push(p.last_end === placeOf(j) ? [`Truck (${j.machine_code}): Machine already on site`, `${j.machine_code} ended at ${p.last_end}`] : [`Truck (${j.machine_code}) (${cardDate(d0, true)}): Ahmed (from ${p.last_end})`, `${j.machine_code} ended at ${p.last_end} — change the date or the driver after`]) }
     if (f === 'agent' && p.site_agent) out.push([p.site_agent, `on #${p.site_card}, the last card at this site`])
+    // QW-29: the fee last charged — on this site, else on this client; the mobilisation and crane price as last charged there
+    if (f === 'pumping_fee_ksh') { if (p.site_fee != null) out.push([String(p.site_fee), `last charged at ${j.site_name} (#${p.site_fee_card})`]); else if (p.client_fee != null) out.push([String(p.client_fee), `last charged to ${j.client || 'this client'} (#${p.client_fee_card})`]) }
+    if (f === 'mobilisation_fee_ksh' && p.site_mob != null && Number(p.site_mob) > 0) out.push([String(p.site_mob), `last charged at ${j.site_name} (#${p.site_fee_card})`])
+    if (f === 'crane_price_ksh' && p.last_crane_price != null) out.push([String(p.last_crane_price), `the last priced trip to ${j.site_name}`])
     if (f === 'client' && p.site_client) out.push([p.site_client, `on #${p.site_card}, the last card at this site`])
     if (f === 'maps_pin_url' && p.site_pin) out.push([p.site_pin, 'the pin on file for this site'])
   } else {
@@ -721,6 +727,12 @@ function editorHtml(scope, f, label, o, j) {
   else if (f === 'casting') { const day = scope === 'day', on = new Set(cur.split('/').map(x => x.trim()).filter(Boolean)); body = `<div class="picks" id="ed-multi">${(lists.castings || []).map(c => { const v = day ? c.name : c.code; return `<button class="pick" data-multi="${esc(v)}" aria-pressed="${on.has(v)}">${day ? esc(c.name) : esc(c.code) + ' · ' + esc(c.name)}</button>` }).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="${day ? 'Columns/Slab' : 'C/S'}"><button class="act yes" data-save="1">Save</button></div>` }
   else if (f === 'agent') body = `<div class="picks">${(lists.agents || []).slice(0, 12).map(a => `<button class="pick" data-val="${esc(a)}" aria-pressed="${o[f] === a}">${esc(a)}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="Agent"><button class="act yes" data-save="1">Save</button></div>`
   else if (f === 'notes') body = `<textarea id="ed-in" autocomplete="off">${esc(cur)}</textarea><button class="act yes" data-save="1">Save</button>`
+  // QW-29 (the owner, 3 Oct 2026): mobilisation "quick-select options from 15,000 to 30,000 in increments of 5,000 and a free text option";
+  // the crane trip price "should default at 14,000, with a 10,800 option and options increasing from 14,000 to 20,000 in increments of 1,000,
+  // plus a free text option"; the pumping fee pre-populated with the fee last charged (the suggestion above) and typed otherwise
+  else if (f === 'mobilisation_fee_ksh') body = `<div class="picks">${[0, 15000, 20000, 25000, 30000].map(v => `<button class="pick" data-val="${v}" aria-pressed="${Number(o[f]) === v && !empty(o[f])}">${v ? 'KES ' + v.toLocaleString('en-US') : 'None'}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="another amount"><button class="act yes" data-save="1">Save</button></div>`
+  else if (f === 'crane_price_ksh') body = `<div class="picks">${[10800, 14000, 15000, 16000, 17000, 18000, 19000, 20000].map(v => `<button class="pick" data-val="${v}" aria-pressed="${Number(o[f]) === v && !empty(o[f])}">${'KES ' + v.toLocaleString('en-US')}${v === 14000 ? ' · default' : ''}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="another amount"><button class="act yes" data-save="1">Save</button></div>`
+  else if (f === 'pumping_fee_ksh') { const p = props[j.id] || {}, ph = p.site_fee ?? p.client_fee ?? 650; body = `<div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="${ph}"><button class="act yes" data-save="1">Save</button></div><div class="why">a m³ — the placeholder is the fee last charged${p.site_fee != null ? ' at this site' : p.client_fee != null ? ' to this client' : ''}</div>` }
   else body = `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" ${f.startsWith('engine') ? 'inputmode="decimal" placeholder="1,268.1"' : f === 'reporting_time' ? 'type="time"' : f === 'job_number' ? 'inputmode="text" placeholder="1192"' : f === 'maps_pin_url' ? 'inputmode="url" placeholder="https://maps.app.goo.gl/…"' : f === 'start_line' ? `placeholder="${esc(placeOf(j))}"` : f === 'end_line' ? 'placeholder="Westlands - Golden Mansion"' : ''}><button class="act yes" data-save="1">Save</button></div>`
   return `<div class="editor" data-scope="${scope}" data-f="${f}" data-id="${o.id}"><div class="k">${label}</div>${sug ? `<div class="picks">${sug}</div>` : ''}${body}${!empty(o[f]) && f !== 'site' ? '<button class="act quiet" data-val="" style="justify-self:start">Clear it</button>' : ''}</div>`
 }
