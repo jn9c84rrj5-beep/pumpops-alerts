@@ -676,7 +676,7 @@ async function jobSay(body) {
 
 // ── the shell: the card he would author, its gaps to tap ──
 const JOB_ROWS = [['site', 'Site'], ['client', 'Client'], ['casting', 'Casting'], ['agent', 'Agent'], ['contact', 'Contact'], ['maps_pin_url', 'Maps pin'], ['machine_code', 'Machine'], ['job_number', 'Job number'], ['engine_hours_start', 'Engine hours (start)'], ['pumping_fee_ksh', 'Pumping fee (a m³)'], ['mobilisation_fee_ksh', 'Mobilisation'], ['crane_line', 'Truck line'], ['crane_price_ksh', 'Crane trip price']]
-const DAY_ROWS = [['reporting_time', 'Reporting time'], ['casting', 'Casting'], ['start_line', 'START'], ['end_line', 'END'], ['engine_hours_end', 'Engine hours (end)'], ['notes', 'NOTES']]
+const DAY_ROWS = [['reporting_time', 'Reporting time'], ['casting', 'Casting'], ['start_line', 'START'], ['end_line', 'END'], ['engine_hours_end', 'Engine hours (end)'], ['mobilisation_fee_ksh', 'Mobilisation this day'], ['notes', 'NOTES']]
 const OPTIONAL = new Set(['agent', 'contact', 'maps_pin_url', 'casting:day', 'end_line', 'notes', 'crane_price_ksh'])   // the crane price defaults to 14,000 (QW-29)
 const placeOf = j => (j.area_name ? j.area_name + ' - ' : '') + j.site_name
 function titleLine(j) {
@@ -691,6 +691,8 @@ function valueOf(scope, f, o, j) {
     if (f === 'engine_hours_end') return `<span class="v ${cal && o.day_date < cal.today ? 'gap' : 'later'}">${cal && o.day_date < cal.today ? 'Tap to fill' : 'at the day’s end'}</span>`
     if (f === 'end_line') return '<span class="v later">END (where the job is) — tap if it moved</span>'
     if (f === 'crane_price_ksh') return '<span class="v later">KES 14,000 (the default) — tap to change</span>'
+    // W33 (the owner, 4 Oct 2026: "mobilisation on the first day is fine. but some jobs are charged mobilisation on multiple days"): a day's own
+    if (scope === 'day' && f === 'mobilisation_fee_ksh') return '<span class="v later">as the job (charged on its first pumping day) — tap if this day is charged its own</span>'
     return `<span class="v ${OPTIONAL.has(scope === 'day' && f === 'casting' ? 'casting:day' : f) ? 'later' : 'gap'}">${OPTIONAL.has(scope === 'day' && f === 'casting' ? 'casting:day' : f) ? 'none — tap to add' : 'Tap to fill'}</span>`
   }
   if (f === 'engine_hours_start' || f === 'engine_hours_end') return n1(v)
@@ -712,6 +714,7 @@ function suggestions(scope, f, o, j) {
     if (f === 'client' && p.site_client) out.push([p.site_client, `on #${p.site_card}, the last card at this site`])
     if (f === 'maps_pin_url' && p.site_pin) out.push([p.site_pin, 'the pin on file for this site'])
   } else {
+    if (f === 'mobilisation_fee_ksh' && !empty(j.mobilisation_fee_ksh) && Number(j.mobilisation_fee_ksh) > 0) out.push([String(Number(j.mobilisation_fee_ksh)), 'the job’s mobilisation, charged again this day'])   // W33
     if (f === 'start_line') { const prev = j.days.filter(d => d.day_date < o.day_date).sort((a, b) => a.day_date < b.day_date ? 1 : -1)[0]; if (prev || !p.last_end || p.last_end === placeOf(j)) out.push([placeOf(j), 'where the job is']); else out.push([`${p.last_end} > ${placeOf(j)}`, `${j.machine_code} ended at ${p.last_end}; location 2 is the title’s`]) }
     if (f === 'reporting_time') { const prev = j.days.filter(d => d.id !== o.id && d.reporting_time).sort((a, b) => a.day_date < b.day_date ? 1 : -1)[0]; if (prev) out.push([String(prev.reporting_time).slice(0, 5), `as ${longDay(prev.day_date)}`]) }
   }
@@ -730,7 +733,7 @@ function editorHtml(scope, f, label, o, j) {
   // QW-29 (the owner, 3 Oct 2026): mobilisation "quick-select options from 15,000 to 30,000 in increments of 5,000 and a free text option";
   // the crane trip price "should default at 14,000, with a 10,800 option and options increasing from 14,000 to 20,000 in increments of 1,000,
   // plus a free text option"; the pumping fee pre-populated with the fee last charged (the suggestion above) and typed otherwise
-  else if (f === 'mobilisation_fee_ksh') body = `<div class="picks">${[0, 15000, 20000, 25000, 30000].map(v => `<button class="pick" data-val="${v}" aria-pressed="${Number(o[f]) === v && !empty(o[f])}">${v ? 'KES ' + v.toLocaleString('en-US') : 'None'}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="another amount"><button class="act yes" data-save="1">Save</button></div>`
+  else if (f === 'mobilisation_fee_ksh') body = `<div class="picks">${[0, 15000, 20000, 25000, 30000].map(v => `<button class="pick" data-val="${v}" aria-pressed="${Number(o[f]) === v && !empty(o[f])}">${v ? 'KES ' + v.toLocaleString('en-US') : scope === 'day' ? 'None this day' : 'None'}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="another amount"><button class="act yes" data-save="1">Save</button></div>`
   else if (f === 'crane_price_ksh') body = `<div class="picks">${[10800, 14000, 15000, 16000, 17000, 18000, 19000, 20000].map(v => `<button class="pick" data-val="${v}" aria-pressed="${Number(o[f]) === v && !empty(o[f])}">${'KES ' + v.toLocaleString('en-US')}${v === 14000 ? ' · default' : ''}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="another amount"><button class="act yes" data-save="1">Save</button></div>`
   else if (f === 'pumping_fee_ksh') { const p = props[j.id] || {}, ph = p.site_fee ?? p.client_fee ?? 650; body = `<div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="${ph}"><button class="act yes" data-save="1">Save</button></div><div class="why">a m³ — the placeholder is the fee last charged${p.site_fee != null ? ' at this site' : p.client_fee != null ? ' to this client' : ''}</div>` }
   else body = `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" ${f.startsWith('engine') ? 'inputmode="decimal" placeholder="1,268.1"' : f === 'reporting_time' ? 'type="time"' : f === 'job_number' ? 'inputmode="text" placeholder="1192"' : f === 'maps_pin_url' ? 'inputmode="url" placeholder="https://maps.app.goo.gl/…"' : f === 'start_line' ? `placeholder="${esc(placeOf(j))}"` : f === 'end_line' ? 'placeholder="Westlands - Golden Mansion"' : ''}><button class="act yes" data-save="1">Save</button></div>`
