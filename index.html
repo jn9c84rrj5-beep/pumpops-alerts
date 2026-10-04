@@ -692,7 +692,7 @@ function valueOf(scope, f, o, j) {
     if (f === 'end_line') return '<span class="v later">END (where the job is) — tap if it moved</span>'
     if (f === 'crane_price_ksh') return '<span class="v later">KES 14,000 (the default) — tap to change</span>'
     // W33 (the owner, 4 Oct 2026: "mobilisation on the first day is fine. but some jobs are charged mobilisation on multiple days"): a day's own
-    if (scope === 'day' && f === 'mobilisation_fee_ksh') return '<span class="v later">as the job (charged on its first pumping day) — tap if this day is charged its own</span>'
+    if (scope === 'day' && f === 'mobilisation_fee_ksh') return '<span class="v later">as the job (charged on its first day) — tap if this day is charged its own</span>'
     return `<span class="v ${OPTIONAL.has(scope === 'day' && f === 'casting' ? 'casting:day' : f) ? 'later' : 'gap'}">${OPTIONAL.has(scope === 'day' && f === 'casting' ? 'casting:day' : f) ? 'none — tap to add' : 'Tap to fill'}</span>`
   }
   if (f === 'engine_hours_start' || f === 'engine_hours_end') return n1(v)
