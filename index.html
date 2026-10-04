@@ -890,7 +890,8 @@ document.addEventListener('click', async e => {
       const a = t.buttons[Number(b.dataset.b)]; if (!a) return
       if (a.share) { if (navigator.share) { try { await navigator.share({ text: a.share }) } catch { return } } else { await navigator.clipboard.writeText(a.share); toast('Copied — paste it in his group') } }
       b.disabled = true
-      return say({ action: 'issue', machine: a.machine, day: a.day, fp: a.fp, answer: a.answer, issue: t.what, ...at })
+      // (the "which job is it?" answer carries its planned job — it was dropped here until 4 Oct 2026 and the answer went nowhere)
+      return say({ action: 'issue', machine: a.machine, day: a.day, fp: a.fp, answer: a.answer, ...(a.job != null ? { job: a.job } : {}), issue: t.what, ...at })
     }
     const a = t.plain[Number(b.dataset.i)]; if (!a) return
     if (a.compose) return openSheet({ ...a.compose, ...at, who: (t.r.data && t.r.data.payee) || null, day: a.day || (t.r.data && t.r.data.day) || null })
