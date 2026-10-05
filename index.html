@@ -445,6 +445,8 @@ const todo = d => pending(d).filter(t => !t.asked)
 const solved = d => mine(d).filter(t => t.needs && t.solved)
 
 const hm = iso => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+// every alert carries its DATE and its time (the owner, 5 Oct 2026: "the alerts on the bot app need to be dated")
+const dated = iso => new Date(iso).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hm(iso)
 const when = iso => { const d = new Date(iso); return d.toDateString() === new Date().toDateString() ? hm(iso) : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hm(iso) }
 
 // ── the brief: the manager's own (written on the Mac) when there is one, else the counts ──
@@ -478,7 +480,7 @@ function card(t) {
   const chip = !t.needs ? `<span class="chip info">${KIND[t.r.purpose] || esc(t.r.purpose)}</span>` : t.solved ? '<span class="chip done">✓ Solved</span>' : t.asked ? `<span class="chip info">Investigating</span>${t.replied ? '<span class="chip need"><span class="dot"></span>He replied</span>' : ''}` : '<span class="chip need"><span class="dot"></span>Needs you</span>'
   const d = dept === 'all' && t.dept ? `<span class="chip">${DEPTS[t.dept]?.tab || esc(t.dept)}</span>` : ''
   return `<article class="item ${t.needs && t.solved ? 'solved' : ''} ${opened.has(t.key) ? 'open' : ''}" data-key="${t.key}" id="m${t.r.id}-${t.item}">
-    <div class="meta">${chip}${d}${t.head ? `<span>${esc(t.head)}</span>` : `<span>${when(t.at)}</span>`}</div>
+    <div class="meta">${chip}${d}${t.head ? `<span>${esc(t.head)}</span>` : ''}<span>${dated(t.at)}</span></div>
     <div class="what">${esc(t.what)}</div>
     ${t.answer ? `<div class="answer">${esc(t.answer.text)}</div>` : ''}${t.was ? `<div class="was">was: ${esc(t.was)}</div>` : ''}
     ${t.more ? `<div class="more">${esc(t.more)}</div>` : ''}${threadHtml(t)}
