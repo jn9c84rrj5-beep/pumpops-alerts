@@ -612,8 +612,17 @@ const n1 = v => Number(v).toLocaleString('en-US', { minimumFractionDigits: 1, ma
 const weekStart = (() => { try { const l = new Intl.Locale(navigator.language), w = (l.getWeekInfo ? l.getWeekInfo() : l.weekInfo); return w && w.firstDay ? w.firstDay % 7 : 1 } catch { return 1 } })()
 // what a shell still wants from him: the job's own gaps now; a day's engine hours (end) once the day is behind
 const JOB_REQ = ['client', 'casting', 'machine_code', 'job_number', 'engine_hours_start', 'crane_line']
+// W38 (the owner, 5 Oct 2026: "it can't create non job days"): a REPAIR or SERVICE card — a machine's days at the garage, the card he
+// writes `#1136·R1 [n/a] (S) {006} - 14/Sep/2026 SP1420 Repairs Enrich ICD`. No client, no casting, no fees; its ID where the casting sits
+const JOB_REQ_WORK = ['machine_code', 'job_number', 'casting', 'engine_hours_start', 'crane_line']
+const isWork = j => !!j && (j.card_kind === 'repair' || j.card_kind === 'service' || j.card_kind === 'task')
+const WORK = { repair: 'Repair', service: 'Service', task: 'Task' }
+const KIND_WORDS = { job: 'Job day', setting: 'Day 0 (setting)', repair: 'Repair day', service: 'Service day', task: 'Task day' }
+const cardNo = n => String(n == null ? '' : n).replace(/^(\d+)([RST]\d+)$/, '$1·$2')   // 1136R1 → 1136·R1, as his title writes it
+const modelOf = c => c === 'S' ? 'SP1420' : c === 'A' ? 'A1407D' : /^A[2-9]$/.test(c || '') ? 'A1407D-' + c.slice(1) : (c || '')
+const dayTitle = d => d.kind === 'setting' ? 'Day 0 (setting)' : (WORK[d.kind] ? WORK[d.kind] + ' · ' : '') + 'Day ' + d.day_no
 const empty = v => v == null || v === ''
-function gapsOf(j) { let n = JOB_REQ.filter(f => empty(j[f])).length; for (const d of j.days) { if (empty(d.reporting_time)) n++; if (empty(d.start_line)) n++; if (cal && d.day_date < cal.today && empty(d.engine_hours_end) && d.kind !== 'setting') n++ } return n }
+function gapsOf(j) { let n = (isWork(j) ? JOB_REQ_WORK : JOB_REQ).filter(f => empty(j[f])).length; for (const d of j.days) { if (empty(d.reporting_time)) n++; if (empty(d.start_line)) n++; if (cal && d.day_date < cal.today && empty(d.engine_hours_end) && d.kind !== 'setting') n++ } return n }
 const liveJobs = () => (cal ? cal.jobs.filter(j => j.status !== 'cancelled') : [])
 // the badge on the tab: the shells of today and tomorrow that still have gaps
 function jobsToFill() { if (!cal) return 0; const soon = isoDay(new Date(atNoon(cal.today).getTime() + 86400e3)); return liveJobs().filter(j => j.status !== 'done' && j.days.some(d => d.day_date >= cal.today && d.day_date <= soon) && gapsOf(j)).length }
@@ -651,13 +660,13 @@ function renderJobs() {
   const row = e => {
     if (!e.plan) return `<section class="item jobrow"><span class="code" style="--mc:${MC[e.machine] || '#94a3b8'}">${esc(e.machine || '?')}</span><div><div class="what">${esc(e.site || '?')}${e.area ? ` · ${esc(e.area)}` : ''}</div><div class="sub">#${esc(e.l.card)} · ${esc(String(e.l.day_label || '').replace(/:$/, ''))}${e.l.m3 ? ` · ${Number(e.l.m3)} m³` : ''}</div></div><span class="chip done">on its card</span></section>`
     const g = gapsOf(e.j), d = e.d
-    return `<button class="item jobrow" data-job="${e.j.id}"><span class="code" style="--mc:${MC[e.machine] || '#94a3b8'}">${esc(e.machine || '—')}</span><div><div class="what">${esc(e.site)}${e.area ? ` · ${esc(e.area)}` : ''}</div><div class="sub">${[e.j.job_number ? '#' + e.j.job_number : 'no number yet', d.kind === 'setting' ? 'Day 0 · setting' : 'Day ' + d.day_no, d.shift === 'night' ? 'night' : null, d.reporting_time ? String(d.reporting_time).slice(0, 5) : null, e.j.client ? '[' + e.j.client + ']' : null].filter(Boolean).map(esc).join(' · ')}</div></div>${e.j.status === 'done' ? '<span class="chip done">✓ finished</span>' : g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : '<span class="chip done">✓ filled</span>'}</button>`
+    return `<button class="item jobrow" data-job="${e.j.id}"><span class="code" style="--mc:${MC[e.machine] || '#94a3b8'}">${esc(e.machine || '—')}</span><div><div class="what">${esc(e.site)}${e.area ? ` · ${esc(e.area)}` : ''}</div><div class="sub">${[e.j.job_number ? '#' + cardNo(e.j.job_number) : 'no number yet', dayTitle(d), d.shift === 'night' ? 'night' : null, d.reporting_time ? String(d.reporting_time).slice(0, 5) : null, e.j.client ? '[' + e.j.client + ']' : null].filter(Boolean).map(esc).join(' · ')}</div></div>${e.j.status === 'done' ? '<span class="chip done">✓ finished</span>' : g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : '<span class="chip done">✓ filled</span>'}</button>`
   }
   const y = scroller.scrollTop
   main.innerHTML = `<section class="cal"><div class="dow">${dow.map(x => `<span>${x}</span>`).join('')}</div><div class="calgrid">${shown.map(cell).join('')}</div></section>
     <div class="group"><span>${longDay(sel)}${sel === cal.today ? ' · today' : ''}</span><span>${es.length || 'no'} job${es.length === 1 ? '' : 's'}</span></div>
     ${es.map(row).join('') || '<p class="empty" style="padding:18px 12px">Nothing planned for this day.</p>'}
-    <button class="act" data-plan="${sel}" style="justify-self:start">+ Plan a job on ${longDay(sel)}</button>`
+    <div class="acts" style="justify-self:start"><button class="act" data-plan="${sel}">+ Plan a job on ${longDay(sel)}</button><button class="act quiet" data-plan="${sel}" data-plankind="repair">+ A repair or service day</button></div>`
   scroller.scrollTop = y
   navBar()
 }
@@ -675,17 +684,27 @@ async function jobSay(body) {
 }
 
 // ── the shell: the card he would author, its gaps to tap ──
-const JOB_ROWS = [['site', 'Site'], ['client', 'Client'], ['casting', 'Casting'], ['agent', 'Agent'], ['contact', 'Contact'], ['maps_pin_url', 'Maps pin'], ['machine_code', 'Machine'], ['job_number', 'Job number'], ['engine_hours_start', 'Engine hours (start)'], ['pumping_fee_ksh', 'Pumping fee (a m³)'], ['mobilisation_fee_ksh', 'Mobilisation'], ['crane_line', 'Truck line'], ['crane_price_ksh', 'Crane trip price']]
-const DAY_ROWS = [['reporting_time', 'Reporting time'], ['casting', 'Casting'], ['start_line', 'START'], ['end_line', 'END'], ['engine_hours_end', 'Engine hours (end)'], ['mobilisation_fee_ksh', 'Mobilisation this day'], ['notes', 'NOTES']]
-const OPTIONAL = new Set(['agent', 'contact', 'maps_pin_url', 'casting:day', 'end_line', 'notes', 'crane_price_ksh'])   // the crane price defaults to 14,000 (QW-29)
+const JOB_ROWS = [['card_kind', 'What it is'], ['site', 'Site'], ['client', 'Client'], ['casting', 'Casting'], ['agent', 'Agent'], ['contact', 'Contact'], ['maps_pin_url', 'Maps pin'], ['machine_code', 'Machine'], ['job_number', 'Job number'], ['engine_hours_start', 'Engine hours (start)'], ['pumping_fee_ksh', 'Pumping fee (a m³)'], ['mobilisation_fee_ksh', 'Mobilisation'], ['crane_line', 'Truck line'], ['crane_price_ksh', 'Crane trip price']]
+const JOB_ROWS_WORK = j => [['card_kind', 'What it is'], ['site', 'Place'], ['machine_code', 'Machine'], ['job_number', 'Card number'], ['casting', j.card_kind === 'service' ? 'Service ID' : 'Repair ID'], ['work_title', 'Title words'], ['engine_hours_start', 'Engine hours (start)'], ['crane_line', 'Truck line'], ['crane_price_ksh', 'Crane trip price'], ['maps_pin_url', 'Maps pin'], ['contact', 'Contact']]
+const DAY_ROWS_WORK = [['day_date', 'Date'], ['shift', 'Shift'], ['reporting_time', 'Reporting time'], ['start_line', 'START'], ['end_line', 'END'], ['engine_hours_end', 'Engine hours (end)'], ['notes', 'NOTES']]
+// the day's own date, shift and kind are lines like any other (the owner, 5 Oct 2026: "i need to be able to edit a planned job's start date too")
+const DAY_ROWS = [['day_date', 'Date'], ['shift', 'Shift'], ['kind', 'Kind of day'], ['reporting_time', 'Reporting time'], ['casting', 'Casting'], ['start_line', 'START'], ['end_line', 'END'], ['engine_hours_end', 'Engine hours (end)'], ['mobilisation_fee_ksh', 'Mobilisation this day'], ['notes', 'NOTES']]
+const OPTIONAL = new Set(['agent', 'contact', 'maps_pin_url', 'casting:day', 'end_line', 'notes', 'crane_price_ksh', 'work_title'])   // the crane price defaults to 14,000 (QW-29)
 const placeOf = j => (j.area_name ? j.area_name + ' - ' : '') + j.site_name
 function titleLine(j) {
   const g = t => `<span class="gap">${t}</span>`, first = j.days.filter(d => d.day_no >= 1).map(d => d.day_date).sort()[0] || (j.days[0] || {}).day_date
+  if (isWork(j)) return `#${j.job_number ? esc(cardNo(j.job_number)) : g('?')} [n/a] (${j.machine_code ? esc(j.machine_code) : g('?')}) {${j.casting ? esc(j.casting) : g('?')}} - ${first ? cardDate(first) : g('?')} ${j.machine_code ? esc(modelOf(j.machine_code)) : g('?')} ${esc(j.work_title || (j.card_kind === 'repair' ? 'Repairs' : 'Service'))} ${esc(j.site_name)}${j.area_name ? ' ' + esc(j.area_name) : ''}`
   return `#${j.job_number ? esc(j.job_number) : g('?')} [${j.client ? esc(j.client) : g('?')}] (${j.machine_code ? esc(j.machine_code) : g('?')}) {${j.casting ? esc(j.casting) : g('?')}} - ${first ? cardDate(first) : g('?')} ${esc(j.site_name)}${j.area_name ? ' ' + esc(j.area_name) : ''}`
 }
 function valueOf(scope, f, o, j) {
   if (f === 'site') return `${esc(o.site_name)}${o.area_name ? ' · ' + esc(o.area_name) : ''}${o.site_id ? '' : ' <span class="chip need">new site — not in the file yet</span>'}`
   const v = o[f]
+  if (f === 'card_kind') return v === 'repair' ? 'A repair — the machine at the garage' : v === 'service' ? 'A service — the machine at the garage' : 'A pumping job'
+  if (f === 'day_date') return esc(longDay(v))
+  if (f === 'shift') return v === 'night' ? 'Night shift' : 'Day shift'
+  if (f === 'kind') return esc(KIND_WORDS[v] || v)
+  if (f === 'job_number' && !empty(v)) return esc(cardNo(v))
+  if (f === 'work_title' && empty(v)) return `<span class="v later">${j.card_kind === 'repair' ? 'Repairs' : 'Service'} — tap to change</span>`
   if (!empty(v) && (f === 'pumping_fee_ksh' || f === 'mobilisation_fee_ksh' || f === 'crane_price_ksh')) return Number(v) === 0 && f === 'mobilisation_fee_ksh' ? 'none' : 'KES ' + Number(v).toLocaleString('en-US') + (f === 'pumping_fee_ksh' ? ' a m³' : '')
   if (empty(v)) {
     if (f === 'engine_hours_end') return `<span class="v ${cal && o.day_date < cal.today ? 'gap' : 'later'}">${cal && o.day_date < cal.today ? 'Tap to fill' : 'at the day’s end'}</span>`
@@ -703,7 +722,9 @@ function valueOf(scope, f, o, j) {
 function suggestions(scope, f, o, j) {
   const p = props[j.id] || {}, out = []
   if (scope === 'job') {
-    if (f === 'job_number') { if (p.b_number) out.push([p.b_number, `another machine is at ${j.site_name} that day`]); if (p.next_number) out.push([String(p.next_number), 'the next free number']) }
+    if (f === 'job_number' && isWork(j)) { const n = j.card_kind === 'service' ? p.service_number : p.repair_number; if (n) out.push([cardNo(n), `on the newest card number, #${String(n).replace(/[RST]\d+$/, '')}`]) }
+    else if (f === 'job_number') { if (p.b_number) out.push([p.b_number, `another machine is at ${j.site_name} that day`]); if (p.next_number) out.push([String(p.next_number), 'the next free number']) }
+    if (f === 'casting' && isWork(j)) { const sv = j.card_kind === 'service', id = sv ? p.service_id : p.repair_id, lc = sv ? p.service_last_card : p.repair_last_card; if (id) out.push([id, lc ? `${j.machine_code}'s last ${sv ? 'service' : 'repair'} card was #${lc}` : `${j.machine_code || 'this machine'}'s first ${sv ? 'service' : 'repair'} card`]) }
     if (f === 'engine_hours_start' && p.engine_start != null) out.push([n1(p.engine_start), `${j.machine_code}'s last reading — ${longDay(p.engine_day)}, #${p.engine_card}`])
     if (f === 'crane_line' && j.machine_code && p.last_end) { const d0 = j.days.map(d => d.day_date).sort()[0]; out.push(p.last_end === placeOf(j) ? [`Truck (${j.machine_code}): Machine already on site`, `${j.machine_code} ended at ${p.last_end}`] : [`Truck (${j.machine_code}) (${cardDate(d0, true)}): Ahmed (from ${p.last_end})`, `${j.machine_code} ended at ${p.last_end} — change the date or the driver after`]) }
     if (f === 'agent' && p.site_agent) out.push([p.site_agent, `on #${p.site_card}, the last card at this site`])
@@ -721,10 +742,16 @@ function suggestions(scope, f, o, j) {
   return out
 }
 function editorHtml(scope, f, label, o, j) {
-  const cur = empty(o[f]) ? '' : f.startsWith('engine') ? n1(o[f]) : f === 'reporting_time' ? String(o[f]).slice(0, 5) : String(o[f])
+  const cur = empty(o[f]) ? '' : f.startsWith('engine') ? n1(o[f]) : f === 'reporting_time' ? String(o[f]).slice(0, 5) : f === 'job_number' ? cardNo(o[f]) : String(o[f])
   const sug = suggestions(scope, f, o, j).filter(x => x[0] !== cur).map(([v, why]) => `<button class="pick use" data-use="${esc(v)}">Use ${esc(v)}<br><span class="why">${esc(why)}</span></button>`).join('')
   let body
-  if (f === 'machine_code') body = `<div class="picks">${(cal.machines || MORDER).filter(m => m !== 'TRK').map(m => `<button class="pick" data-val="${m}" aria-pressed="${o[f] === m}">${m}</button>`).join('')}<button class="pick" data-val="">Not yet</button></div>`
+  if (f === 'card_kind') body = `<div class="picks">${[['job', 'A pumping job'], ['repair', 'A repair'], ['service', 'A service']].map(([v, t]) => `<button class="pick" data-val="${v}" aria-pressed="${(o[f] || 'job') === v}">${t}</button>`).join('')}</div><div class="why">A repair or service card has no client, casting or fees; its days become ${'repair or service'} days.</div>`
+  else if (f === 'day_date') body = `<div class="line"><input id="ed-in" type="date" value="${esc(cur)}"><button class="act yes" data-save="1">Move this day</button></div>${j.days.length > 1 ? `<button class="act quiet" data-shiftjob="1" style="justify-self:start">Move every day of the job with it</button><div class="why">“Move this day” changes this day only. “Move every day” keeps the other days the same distance from it.</div>` : ''}`
+  else if (f === 'shift') body = `<div class="picks">${[['day', 'Day shift'], ['night', 'Night shift']].map(([v, t]) => `<button class="pick" data-val="${v}" aria-pressed="${o[f] === v}">${t}</button>`).join('')}</div>`
+  else if (f === 'kind') body = `<div class="picks">${[['job', 'Job day'], ['setting', 'Day 0 (setting)']].map(([v, t]) => `<button class="pick" data-val="${v}" aria-pressed="${o[f] === v}">${t}</button>`).join('')}</div><div class="why">A setting day is Day 0: the machine is set up and nothing is pumped.</div>`
+  else if (f === 'casting' && scope === 'job' && isWork(j)) body = `<div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="007"><button class="act yes" data-save="1">Save</button></div><div class="why">the machine’s own count of its ${j.card_kind === 'service' ? 'service' : 'repair'} cards, as the title’s {006}</div>`
+  else if (f === 'work_title') body = `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="${j.card_kind === 'repair' ? 'Repairs' : 'Engine & Hydraulic Service'}"><button class="act yes" data-save="1">Save</button></div><div class="why">the words of the title between the machine and the place</div>`
+  else if (f === 'machine_code') body = `<div class="picks">${(cal.machines || MORDER).filter(m => m !== 'TRK').map(m => `<button class="pick" data-val="${m}" aria-pressed="${o[f] === m}">${m}</button>`).join('')}<button class="pick" data-val="">Not yet</button></div>`
   else if (f === 'site') body = `<input id="ed-in" autocomplete="off" placeholder="Search the sites…"><div class="picks" id="ed-sites"></div><div class="why">A new site? Type its name, then its area:</div><div class="line"><input id="ed-area" autocomplete="off" placeholder="Area (for a new site)"><button class="act yes" data-savesite="1">Save as new</button></div>`
   else if (f === 'client') body = `<div class="picks">${(lists.clients || []).slice(0, 10).map(c => `<button class="pick" data-val="${esc(c)}" aria-pressed="${o[f] === c}">${esc(c)}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="M"><button class="act yes" data-save="1">Save</button></div>`
   else if (f === 'casting') { const day = scope === 'day', on = new Set(cur.split('/').map(x => x.trim()).filter(Boolean)); body = `<div class="picks" id="ed-multi">${(lists.castings || []).map(c => { const v = day ? c.name : c.code; return `<button class="pick" data-multi="${esc(v)}" aria-pressed="${on.has(v)}">${day ? esc(c.name) : esc(c.code) + ' · ' + esc(c.name)}</button>` }).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="${day ? 'Columns/Slab' : 'C/S'}"><button class="act yes" data-save="1">Save</button></div>` }
@@ -736,8 +763,8 @@ function editorHtml(scope, f, label, o, j) {
   else if (f === 'mobilisation_fee_ksh') body = `<div class="picks">${[0, 15000, 20000, 25000, 30000].map(v => `<button class="pick" data-val="${v}" aria-pressed="${Number(o[f]) === v && !empty(o[f])}">${v ? 'KES ' + v.toLocaleString('en-US') : scope === 'day' ? 'None this day' : 'None'}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="another amount"><button class="act yes" data-save="1">Save</button></div>`
   else if (f === 'crane_price_ksh') body = `<div class="picks">${[10800, 14000, 15000, 16000, 17000, 18000, 19000, 20000].map(v => `<button class="pick" data-val="${v}" aria-pressed="${Number(o[f]) === v && !empty(o[f])}">${'KES ' + v.toLocaleString('en-US')}${v === 14000 ? ' · default' : ''}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="another amount"><button class="act yes" data-save="1">Save</button></div>`
   else if (f === 'pumping_fee_ksh') { const p = props[j.id] || {}, ph = p.site_fee ?? p.client_fee ?? 650; body = `<div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="${ph}"><button class="act yes" data-save="1">Save</button></div><div class="why">a m³ — the placeholder is the fee last charged${p.site_fee != null ? ' at this site' : p.client_fee != null ? ' to this client' : ''}</div>` }
-  else body = `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" ${f.startsWith('engine') ? 'inputmode="decimal" placeholder="1,268.1"' : f === 'reporting_time' ? 'type="time"' : f === 'job_number' ? 'inputmode="text" placeholder="1192"' : f === 'maps_pin_url' ? 'inputmode="url" placeholder="https://maps.app.goo.gl/…"' : f === 'start_line' ? `placeholder="${esc(placeOf(j))}"` : f === 'end_line' ? 'placeholder="Westlands - Golden Mansion"' : ''}><button class="act yes" data-save="1">Save</button></div>`
-  return `<div class="editor" data-scope="${scope}" data-f="${f}" data-id="${o.id}"><div class="k">${label}</div>${sug ? `<div class="picks">${sug}</div>` : ''}${body}${!empty(o[f]) && f !== 'site' ? '<button class="act quiet" data-val="" style="justify-self:start">Clear it</button>' : ''}</div>`
+  else body = `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" ${f.startsWith('engine') ? 'inputmode="decimal" placeholder="1,268.1"' : f === 'reporting_time' ? 'type="time"' : f === 'job_number' ? `inputmode="text" placeholder="${isWork(j) ? '1192·R1' : '1192'}"` : f === 'maps_pin_url' ? 'inputmode="url" placeholder="https://maps.app.goo.gl/…"' : f === 'start_line' ? `placeholder="${esc(placeOf(j))}"` : f === 'end_line' ? 'placeholder="Westlands - Golden Mansion"' : ''}><button class="act yes" data-save="1">Save</button></div>`
+  return `<div class="editor" data-scope="${scope}" data-f="${f}" data-id="${o.id}"><div class="k">${label}</div>${sug ? `<div class="picks">${sug}</div>` : ''}${body}${!empty(o[f]) && !['site', 'card_kind', 'day_date', 'shift', 'kind'].includes(f) ? '<button class="act quiet" data-val="" style="justify-self:start">Clear it</button>' : ''}</div>`
 }
 function shellHtml(j) {
   const rowOf = (scope, f, label, o) => editing && editing.scope === scope && editing.f === f && editing.id === o.id ? editorHtml(scope, f, label, o, j)
@@ -747,9 +774,10 @@ function shellHtml(j) {
     <div class="meta" style="margin:6px 0 0">${j.status === 'done' ? '<span class="chip done">✓ finished</span>' : j.status === 'missed' ? '<span class="chip need">Missed</span>' : j.status === 'started' ? '<span class="chip info">Under way</span>' : '<span class="chip">Planned</span>'}${g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : '<span class="chip done">✓ shell filled</span>'}${j.source !== 'owner' ? `<span class="chip">from ${esc(j.source)}</span>` : ''}</div>
     <div class="titleline">${titleLine(j)}</div>
     <div class="secth"><span>The job</span><span>tap a line to change it</span></div>
-    ${JOB_ROWS.map(([f, label]) => rowOf('job', f, label, j)).join('')}
-    ${[...j.days].sort((a, b) => a.day_date < b.day_date ? -1 : 1).map(d => `<div class="secth"><span>${d.kind === 'setting' ? 'Day 0 (setting)' : 'Day ' + d.day_no} · ${longDay(d.day_date)}${d.shift === 'night' ? ' · night' : ''}</span>${j.days.length > 1 ? `<button class="act quiet" data-dropday="${d.id}" style="min-height:30px;padding:2px 8px;font-size:12.5px">Take this day off</button>` : ''}</div>${DAY_ROWS.map(([f, label]) => rowOf('day', f, label, d)).join('')}`).join('')}
-    <div class="acts"><button class="act" data-addday="${next}">+ Day on ${longDay(next)}</button>${j.days.some(d => d.day_no === 0) ? '' : `<button class="act quiet" data-addday="${before}" data-setting="1">+ Day 0 (setting) on ${longDay(before)}</button>`}</div>
+    ${(isWork(j) ? JOB_ROWS_WORK(j) : JOB_ROWS).map(([f, label]) => rowOf('job', f, label, j)).join('')}
+    ${[...j.days].sort((a, b) => a.day_date < b.day_date ? -1 : 1).map(d => `<div class="secth"><span>${dayTitle(d)} · ${longDay(d.day_date)}${d.shift === 'night' ? ' · night' : ''}</span>${j.days.length > 1 ? `<button class="act quiet" data-dropday="${d.id}" style="min-height:30px;padding:2px 8px;font-size:12.5px">Take this day off</button>` : ''}</div>${(isWork(j) ? DAY_ROWS_WORK : DAY_ROWS).map(([f, label]) => rowOf('day', f, label, d)).join('')}`).join('')}
+    <div class="acts"><button class="act" data-addday="${next}">+ Day on ${longDay(next)}</button>${isWork(j) || j.days.some(d => d.day_no === 0) ? '' : `<button class="act quiet" data-addday="${before}" data-setting="1">+ Day 0 (setting) on ${longDay(before)}</button>`}</div>
+    <div class="line" style="margin-top:8px"><input type="date" id="add-date" value="${next}" aria-label="Another date for a new day"><button class="act quiet" data-adddayat="1">+ Day on this date</button></div>
     ${missedOpen && ['planned', 'started'].includes(j.status) ? `<div class="secth"><span>Missed — no pump for it</span><span>it goes on the missed-jobs record</span></div>
       <div class="two"><div><div class="label">m³</div><input id="missed-m3" inputmode="decimal" autocomplete="off" value="${esc(String((String(j.casting || '').match(/\d+(?:\.\d+)?/) || [''])[0]))}" placeholder="100"></div><div></div></div>
       <div class="acts"><button class="act" data-missedkind="hired">We hired a pump</button><button class="act" data-missedkind="lost">Lost the job</button><button class="act quiet" data-missedopen="0">Not missed</button></div>` : ''}
@@ -766,7 +794,7 @@ async function openShell(id) {
 }
 function siteSearch() {
   const el = $('ed-sites') || $('plan-sites'), inp = $('ed-in') || $('plan-site'); if (!el || !inp) return
-  const qy = inp.value.trim().toLowerCase(), hits = !qy ? [] : (lists.sites || []).filter(x => (x.name + ' ' + (x.area || '')).toLowerCase().includes(qy)).slice(0, 8)
+  const qy = inp.value.trim().toLowerCase(), hits = !qy ? (plan && plan.card_kind !== 'job' && !plan.site_id ? (lists.sites || []).filter(x => x.name === 'Enrich').slice(0, 2) : []) : (lists.sites || []).filter(x => (x.name + ' ' + (x.area || '')).toLowerCase().includes(qy)).slice(0, 8)
   el.innerHTML = hits.map(x => `<button class="pick" data-site="${x.id}" aria-pressed="${plan && plan.site_id === x.id}">${esc(x.name)}${x.area ? ' · ' + esc(x.area) : ''}</button>`).join('') || (qy ? '<span class="why">No site in the file by that name — it will be kept as a new site.</span>' : '')
 }
 async function saveField(scope, f, id, value) {
@@ -782,25 +810,27 @@ function planHtml() {
   const p = plan, pr = p.props || {}
   const chip = (f, v) => `<button class="pick" data-pf="${f}" data-pv="${esc(v)}" aria-pressed="${p[f] === v}">${esc(v)}</button>`
   const cast = new Set(String(p.casting || '').split('/').filter(Boolean))
-  return `<h2>Plan a job</h2><p class="hint">The date and the site make the job; everything else can wait for the day. The machine is chosen when you know it.</p>
+  const work = p.card_kind !== 'job'
+  return `<h2>${work ? 'Plan a ' + p.card_kind + ' day' : 'Plan a job'}</h2><p class="hint">${work ? 'A machine’s day at the garage: the date, the place and the machine. Its card number and ID are offered once it is planned.' : 'The date and the site make the job; everything else can wait for the day. The machine is chosen when you know it.'}</p>
+    <div class="picks" style="margin-bottom:10px">${[['job', 'A pumping job'], ['repair', 'A repair'], ['service', 'A service']].map(([v, t]) => `<button class="pick" data-pf="card_kind" data-pv="${v}" aria-pressed="${p.card_kind === v}">${t}</button>`).join('')}</div>
     <div class="two"><div><div class="label" style="margin-top:0">Date</div><input type="date" id="plan-date" value="${p.date}"></div><div><div class="label" style="margin-top:0">Reporting time</div><input type="time" id="plan-rt" value="${esc(p.reporting_time || '')}"></div></div>
     <div class="picks" style="margin-top:8px">${['day', 'night'].map(x => `<button class="pick" data-pf="shift" data-pv="${x}" aria-pressed="${p.shift === x}">${x === 'day' ? 'Day shift' : 'Night shift'}</button>`).join('')}</div>
-    <div class="label">Site</div><input id="plan-site" autocomplete="off" placeholder="Search the sites, or type a new one" value="${esc(p.site_text || '')}">
+    <div class="label">${work ? 'Place' : 'Site'}</div><input id="plan-site" autocomplete="off" placeholder="${work ? 'Search the sites — Enrich…' : 'Search the sites, or type a new one'}" value="${esc(p.site_text || '')}">
     <div class="picks" id="plan-sites" style="margin-top:6px"></div>
     ${p.site_id ? '' : `<div class="two" style="margin-top:8px"><input id="plan-area" autocomplete="off" list="areas" placeholder="Area (a new site)" value="${esc(p.area_name || '')}"><input id="plan-pin" autocomplete="off" inputmode="url" placeholder="Maps pin (optional)" value="${esc(p.maps_pin_url || '')}"></div><datalist id="areas">${(lists.areas || []).map(a => `<option value="${esc(a)}">`).join('')}</datalist>`}
-    <div class="label">Client${pr.site_client ? ` <span class="why">· #${esc(pr.site_card)} here was [${esc(pr.site_client)}]</span>` : ''}</div><div class="picks">${(lists.clients || []).slice(0, 8).map(c => chip('client', c)).join('')}</div>
+    ${work ? '' : `<div class="label">Client${pr.site_client ? ` <span class="why">· #${esc(pr.site_card)} here was [${esc(pr.site_client)}]</span>` : ''}</div><div class="picks">${(lists.clients || []).slice(0, 8).map(c => chip('client', c)).join('')}</div>
     <div class="label">Casting</div><div class="picks">${(lists.castings || []).map(c => `<button class="pick" data-pcast="${esc(c.code)}" aria-pressed="${cast.has(c.code)}">${esc(c.code)} · ${esc(c.name)}</button>`).join('')}</div>
-    <div class="label">Agent${pr.site_agent ? ` <span class="why">· #${esc(pr.site_card)} here was ${esc(pr.site_agent)}</span>` : ''}</div><div class="picks">${[...new Set([pr.site_agent, ...(lists.agents || []).slice(0, 8)].filter(Boolean))].map(a => chip('agent', a)).join('')}</div>
-    <div class="label">Machine <span class="why">· leave it for the day if you don’t know yet</span></div><div class="picks">${MORDER.filter(m => m !== 'TRK').map(m => chip('machine_code', m)).join('')}</div>
-    <div class="preview" aria-live="polite">${p.site_id || (p.site_text || '').trim() ? `#? [${esc(p.client || '?')}] (${esc(p.machine_code || '?')}) {${esc(p.casting || '?')}} - ${cardDate(p.date)} ${esc(p.site_id ? p.site_name + (p.area_name ? ' ' + p.area_name : '') : (p.site_text || '').trim() + (p.area_name ? ' ' + p.area_name : ''))}` : 'Pick the site.'}</div>
+    <div class="label">Agent${pr.site_agent ? ` <span class="why">· #${esc(pr.site_card)} here was ${esc(pr.site_agent)}</span>` : ''}</div><div class="picks">${[...new Set([pr.site_agent, ...(lists.agents || []).slice(0, 8)].filter(Boolean))].map(a => chip('agent', a)).join('')}</div>`}
+    <div class="label">Machine${work ? '' : ' <span class="why">· leave it for the day if you don’t know yet</span>'}</div><div class="picks">${MORDER.filter(m => m !== 'TRK').map(m => chip('machine_code', m)).join('')}</div>
+    <div class="preview" aria-live="polite">${p.site_id || (p.site_text || '').trim() ? `#? [${work ? 'n/a' : esc(p.client || '?')}] (${esc(p.machine_code || '?')}) {${work ? '?' : esc(p.casting || '?')}} - ${cardDate(p.date)} ${work ? esc(modelOf(p.machine_code) || '?') + (p.card_kind === 'repair' ? ' Repairs ' : ' Service ') : ''}${esc(p.site_id ? p.site_name + (p.area_name ? ' ' + p.area_name : '') : (p.site_text || '').trim() + (p.area_name ? ' ' + p.area_name : ''))}` : 'Pick the site.'}</div>
     <div class="sheet-actions"><button class="act quiet" data-close="1">Cancel</button><button class="act yes" data-planit="1" ${p.site_id || (p.site_text || '').trim() ? '' : 'disabled'}>Plan it</button></div>`
 }
 function keepPlanInputs() { if (!plan) return; const g = id => $(id) ? $(id).value : undefined; const d = g('plan-date'), rt = g('plan-rt'), st = g('plan-site'), ar = g('plan-area'), pin = g('plan-pin'); if (d) plan.date = d; if (rt !== undefined) plan.reporting_time = rt; if (st !== undefined) plan.site_text = st; if (ar !== undefined) plan.area_name = ar; if (pin !== undefined) plan.maps_pin_url = pin }
 function drawPlan(focusSite) { const top = $('job').scrollTop; $('job-body').innerHTML = planHtml(); $('job').scrollTop = top; siteSearch(); if (focusSite) { const i = $('plan-site'); i.focus(); i.setSelectionRange(i.value.length, i.value.length) } }
-async function openPlan(date) {
+async function openPlan(date, kind) {
   shellJob = null; editing = null
-  plan = { date: date || (cal && cal.today), shift: 'day', site_id: null, site_name: null, area_name: '', site_text: '', maps_pin_url: '', client: null, casting: '', agent: null, machine_code: null, reporting_time: '', props: {} }
-  $('job-body').innerHTML = '<h2>Plan a job</h2><p class="hint">Opening…</p>'; if (!$('job').open) $('job').showModal()
+  plan = { card_kind: kind === 'repair' || kind === 'service' ? kind : 'job', date: date || (cal && cal.today), shift: 'day', site_id: null, site_name: null, area_name: '', site_text: '', maps_pin_url: '', client: null, casting: '', agent: null, machine_code: null, reporting_time: '', props: {} }
+  $('job-body').innerHTML = `<h2>${plan.card_kind === 'job' ? 'Plan a job' : 'Plan a ' + plan.card_kind + ' day'}</h2><p class="hint">Opening…</p>`; if (!$('job').open) $('job').showModal()
   await needLists(); if (plan) drawPlan()
 }
 $('job').addEventListener('input', e => {
@@ -817,11 +847,11 @@ $('job').addEventListener('click', async e => {
   if (plan) {
     keepPlanInputs()
     if (b.dataset.site) { const st = (lists.sites || []).find(x => String(x.id) === b.dataset.site); if (!st) return; plan.site_id = st.id; plan.site_name = st.name; plan.area_name = st.area || ''; plan.site_text = st.name; const { data } = await api(`proposals&machine=&day=${plan.date}&site=${st.id}`).catch(() => ({ data: {} })); if (!plan) return; plan.props = data || {}; if (data && data.site_pin) plan.maps_pin_url = data.site_pin; return drawPlan() }
-    if (b.dataset.pf) { plan[b.dataset.pf] = plan[b.dataset.pf] === b.dataset.pv && b.dataset.pf !== 'shift' ? null : b.dataset.pv; return drawPlan() }
+    if (b.dataset.pf) { plan[b.dataset.pf] = plan[b.dataset.pf] === b.dataset.pv && !['shift', 'card_kind'].includes(b.dataset.pf) ? null : b.dataset.pv; return drawPlan() }
     if (b.dataset.pcast) { const set = new Set(String(plan.casting || '').split('/').filter(Boolean)); set.has(b.dataset.pcast) ? set.delete(b.dataset.pcast) : set.add(b.dataset.pcast); plan.casting = [...set].join('/'); return drawPlan() }
     if (b.dataset.planit) {
       b.disabled = true
-      const body = { action: 'job_new', date: plan.date, shift: plan.shift, reporting_time: plan.reporting_time || null, client: plan.client, casting: plan.casting || null, agent: plan.agent, machine_code: plan.machine_code, maps_pin_url: plan.maps_pin_url || null, ...(plan.site_id ? { site_id: plan.site_id } : { site_name: plan.site_text.trim(), area_name: (plan.area_name || '').trim() }) }
+      const body = { action: 'job_new', card_kind: plan.card_kind, date: plan.date, shift: plan.shift, reporting_time: plan.reporting_time || null, client: plan.client, casting: plan.casting || null, agent: plan.agent, machine_code: plan.machine_code, maps_pin_url: plan.maps_pin_url || null, ...(plan.site_id ? { site_id: plan.site_id } : { site_name: plan.site_text.trim(), area_name: (plan.area_name || '').trim() }) }
       const date = plan.date, out = await jobSay(body)
       if (!out) { b.disabled = false; return }
       toast(out.reply || '✓ Planned'); calSel = date; if (date.slice(0, 7) !== calMonth) { calMonth = date.slice(0, 7); await loadCal() }
@@ -837,6 +867,8 @@ $('job').addEventListener('click', async e => {
   if (b.dataset.missedkind) { b.disabled = true; const out = await jobSay({ action: 'job_missed', job: j.id, hired: b.dataset.missedkind === 'hired', m3: $('missed-m3').value }); if (out) { toast(out.reply); missedOpen = false } return drawShell() }
   if (b.dataset.status) { b.disabled = true; const out = await jobSay({ action: 'job_set', job: j.id, field: 'status', value: b.dataset.status }); if (out && b.dataset.status === 'cancelled') { toast('✓ The job is cancelled — it is off the calendar.'); $('job').close(); return } return drawShell() }
   if (b.dataset.addday) { b.disabled = true; const out = await jobSay({ action: 'job_day_add', job: j.id, date: b.dataset.addday, kind: b.dataset.setting ? 'setting' : 'job' }); if (out) toast(out.reply); return drawShell() }
+  if (b.dataset.adddayat) { const d = $('add-date').value; if (!d) return toast('Pick the date first.'); b.disabled = true; const out = await jobSay({ action: 'job_day_add', job: j.id, date: d, kind: 'job' }); if (out) toast(out.reply); return drawShell() }
+  if (b.dataset.shiftjob) { const ed0 = b.closest('.editor'), d = $('ed-in').value; if (!ed0 || !d) return toast('Pick the date first.'); b.disabled = true; const out = await jobSay({ action: 'job_shift', day_id: Number(ed0.dataset.id), date: d }); if (out) { toast(out.reply); editing = null; calSel = d; await loadProps(cal.jobs.find(x => x.id === shellJob) || j) } return drawShell() }
   if (b.dataset.dropday) { b.disabled = true; const out = await jobSay({ action: 'job_day_drop', day_id: Number(b.dataset.dropday) }); if (out) toast(out.reply); return drawShell() }
   const ed = b.closest('.editor'); if (!ed) return
   const scope = ed.dataset.scope, f = ed.dataset.f, id = Number(ed.dataset.id)
@@ -866,7 +898,7 @@ document.addEventListener('click', async e => {
   if (b?.dataset.d) { dept = b.dataset.d; scroller.scrollTop = 0; render(); if (dept === 'jobs') loadCal(); return }
   if (b?.dataset.cell) { calSel = b.dataset.cell; if (calSel.slice(0, 7) !== calMonth) { calMonth = calSel.slice(0, 7); return loadCal() } return renderJobs() }
   if (b?.dataset.job) return openShell(Number(b.dataset.job))
-  if (b?.dataset.plan) return openPlan(b.dataset.plan)
+  if (b?.dataset.plan) return openPlan(b.dataset.plan, b.dataset.plankind)
   if (b?.dataset.f) { filters[dept] = b.dataset.f; scroller.scrollTop = 0; return render() }
   if (b?.dataset.owed) { const id = Number(b.dataset.owed); owedSel.has(id) ? owedSel.delete(id) : owedSel.add(id); return render() }
   if (b?.dataset.owedact) {
