@@ -664,11 +664,27 @@ function renderJobs() {
   }
   const y = scroller.scrollTop
   main.innerHTML = `<section class="cal"><div class="dow">${dow.map(x => `<span>${x}</span>`).join('')}</div><div class="calgrid">${shown.map(cell).join('')}</div></section>
+    ${ongoingHtml()}
     <div class="group"><span>${longDay(sel)}${sel === cal.today ? ' · today' : ''}</span><span>${es.length || 'no'} job${es.length === 1 ? '' : 's'}</span></div>
     ${es.map(row).join('') || '<p class="empty" style="padding:18px 12px">Nothing planned for this day.</p>'}
     <div class="acts" style="justify-self:start"><button class="act" data-plan="${sel}">+ Plan a job on ${longDay(sel)}</button><button class="act quiet" data-plan="${sel}" data-plankind="repair">+ A repair or service day</button></div>`
   scroller.scrollTop = y
   navBar()
+}
+// W44 (the owner, 5 Oct 2026: "i'd like metadata for existing cards … to be editable in the bot app" — "only for ongoing cards"): every
+// card still running, one tap from its shell. A card whose planned job carries no number yet is offered that job to join (his tap,
+// never the bot's guess — R128); a card with no shell gets one made from the card as it stands.
+function ongoingHtml() {
+  const og = (cal && cal.ongoing) || []
+  if (!og.length) return ''
+  const row = o => {
+    const sub = `#${esc(cardNo(o.card))} · since ${longDay(o.first_day)} · ${o.days} day${o.days === 1 ? '' : 's'} on the card`
+    const lead = `<span class="code" style="--mc:${MC[o.machine] || '#94a3b8'}">${esc(o.machine || '?')}</span><div><div class="what">${esc(o.site || '?')}${o.area ? ` · ${esc(o.area)}` : ''}</div><div class="sub">${sub}</div>`
+    if (o.shell) return `<button class="item jobrow" data-job="${o.shell}">${lead}</div><span class="chip info">tap to change</span></button>`
+    const lk = o.looks_like ? cal.jobs.find(x => x.id === o.looks_like) : null
+    return `<section class="item jobrow">${lead}<div class="acts" style="margin-top:6px">${lk ? `<button class="act" data-ongoingjoin="${o.looks_like}" data-card="${esc(o.card)}">It is the job I planned at ${esc(lk.site_name)} — open it</button>` : ''}<button class="act ${lk ? 'quiet' : ''}" data-ongoingmake="${o.job_id}">${lk ? 'No — open the card on its own' : 'Open it to change'}</button></div></div></section>`
+  }
+  return `<div class="group"><span>Ongoing cards</span><span>${og.length} still running</span></div>${og.map(row).join('')}`
 }
 $('cal-prev').onclick = () => shiftMonth(-1); $('cal-next').onclick = () => shiftMonth(1)
 $('cal-today').onclick = $('cal-month').onclick = () => { if (!cal) return; calMonth = cal.today.slice(0, 7); calSel = cal.today; loadCal() }
@@ -918,6 +934,8 @@ document.addEventListener('click', async e => {
   const b = e.target.closest('button'), art = e.target.closest('.item.solved')
   if (b?.dataset.d) { dept = b.dataset.d; scroller.scrollTop = 0; render(); if (dept === 'jobs') loadCal(); return }
   if (b?.dataset.cell) { calSel = b.dataset.cell; if (calSel.slice(0, 7) !== calMonth) { calMonth = calSel.slice(0, 7); return loadCal() } return renderJobs() }
+  if (b?.dataset.ongoingjoin) { b.disabled = true; shellJob = Number(b.dataset.ongoingjoin); const out = await jobSay({ action: 'job_set', job: shellJob, field: 'job_number', value: b.dataset.card }); shellJob = null; if (!out) { b.disabled = false; return } toast(`✓ Joined to #${b.dataset.card}.`); return openShell(Number(b.dataset.ongoingjoin)) }
+  if (b?.dataset.ongoingmake) { b.disabled = true; const out = await jobSay({ action: 'job_from_card', card_job: Number(b.dataset.ongoingmake) }); if (!out || !out.job) { b.disabled = false; return } return openShell(out.job) }
   if (b?.dataset.job) return openShell(Number(b.dataset.job))
   if (b?.dataset.plan) return openPlan(b.dataset.plan, b.dataset.plankind)
   if (b?.dataset.f) { filters[dept] = b.dataset.f; scroller.scrollTop = 0; return render() }
