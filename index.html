@@ -404,6 +404,22 @@ function show() {
   }, 15000)
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load() })
 }
+// "ASK HIM" ON A FUEL WARNING (the owner, 6 Oct 2026, on two overnight drops: "the team may have been active till late but the machine
+// should have been off, ask him"): a fuel warning that came with no buttons carries Ask him — his private chat with that machine's man of
+// that day is watched until it is answered (W29) — and Known; the words he sends are drafted from the warning itself
+const FUEL_DAY = d => { const x = new Date(String(d).slice(0, 10) + 'T12:00:00Z'); return x.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' }) }
+function fuelAsk(r) {
+  if (r.department !== 'fuel' || !r.needs_owner || !r.machine_code || !r.day_date || (r.actions || []).length) return null
+  const lines = String(r.body).split('\n'), warn = (lines.find(l => /⚠️/.test(l)) || '').replace(/⚠️\s*/u, '').trim()
+  if (!warn) return null
+  const night = /overnight · (\d\d:\d\d) → (\d\d:\d\d)/.exec(lines[0])
+  const fp = `FUEL_ALERT|${r.id}`, base = { action: 'issue', machine: r.machine_code, day: r.day_date, fp }
+  const pc = /(\d+)% → (\d+)%/.exec(warn), lt = /≈ ([\d.]+) L/.exec(warn), buy = /states (\d+) diesel purchases? — ([^—]+?) —/.exec(warn)
+  const draft = night && pc ? `Hello — ${r.machine_code}'s fuel gauge read ${pc[1]}% at ${night[1]} and ${pc[2]}% at ${night[2]} on the morning of ${FUEL_DAY(r.day_date)}${lt ? `, about ${lt[1]} L less` : ''}, while the machine should have been off. What happened?`
+    : buy ? `Hello — ${r.machine_code}'s ending register of ${FUEL_DAY(r.day_date)} states a diesel purchase of ${buy[2].trim()}, but there is no photo of the refuel and no payment for it. What happened?`
+    : `Hello — ${r.machine_code}, ${FUEL_DAY(r.day_date)}: ${warn} What happened?`
+  return [{ ...base, label: 'Ask him', answer: 'asked', share: draft }, { ...base, label: 'Known — stop reminding', answer: 'known' }]
+}
 // one thing per issue of an alert, else one per message; its live answer decides solved / asked
 function derive() {
   const live = new Map(), was = new Map()
@@ -424,7 +440,9 @@ function derive() {
       if (!plain.some(a => a.action === 'personal')) plain.push({ label: 'Personal', action: 'personal', receipt: rc })
     }
     const add = (item, extra) => { const k = r.id + ':' + item, a = live.get(k); const pv = priv.get(k) || null; things.push({ key: k, r, item, dept: r.department, at: r.created_at, priv: pv, replied: !!(pv && pv.messages.some(m => !m.me)), answer: a || null, solved: !!(a && a.final), asked: !!(a && !a.final), was: !a && was.get(k) ? was.get(k).text : null, needs: r.needs_owner, ...extra }) }
+    const fa = fuelAsk(r)
     if (groups.length) groups.forEach((g, gi) => add(gi, { head: first.replace(/^[^\w]+/u, ''), what: g.issue, more: '', buttons: g.buttons, plain: [] }))
+    else if (fa) add(0, { head: '', what: first, more: rest.join('\n'), buttons: fa, plain: [] })
     else add(0, { head: '', what: first, more: rest.join('\n'), buttons: null, plain })
   }
   // A PRIVATE REPLY IS PART OF ITS MAN'S THREAD (the owner, 5 Oct 2026: "multiple ask hims should be grouped in per staff member under the
