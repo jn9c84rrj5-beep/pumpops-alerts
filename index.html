@@ -613,12 +613,12 @@ const weekStart = (() => { try { const l = new Intl.Locale(navigator.language), 
 // what a shell still wants from him: the job's own gaps now; a day's engine hours (end) once the day is behind
 const JOB_REQ = ['client', 'casting', 'machine_code', 'job_number', 'engine_hours_start', 'crane_line']
 // W38 (the owner, 5 Oct 2026: "it can't create non job days"): a REPAIR or SERVICE card — a machine's days at the garage, the card he
-// writes `#1136·R1 [n/a] (S) {006} - 14/Sep/2026 SP1420 Repairs Enrich ICD`. No client, no casting, no fees; its ID where the casting sits
+// writes `#1193R1 [n/a] (S) {007} - 05/Oct/2026 SP1420 Repairs Enrich ICD`. No client, no casting, no fees; its ID where the casting sits
 const JOB_REQ_WORK = ['machine_code', 'job_number', 'casting', 'engine_hours_start', 'crane_line']
 const isWork = j => !!j && (j.card_kind === 'repair' || j.card_kind === 'service' || j.card_kind === 'task')
 const WORK = { repair: 'Repair', service: 'Service', task: 'Task' }
 const KIND_WORDS = { job: 'Job day', setting: 'Day 0 (setting)', repair: 'Repair day', service: 'Service day', task: 'Task day' }
-const cardNo = n => String(n == null ? '' : n).replace(/^(\d+)([RST]\d+)$/, '$1·$2')   // 1136R1 → 1136·R1, as his title writes it
+const cardNo = n => String(n == null ? '' : n).replace(/[·.\s]/g, '')   // 1193R1 — no middle dot since #1136·R1 (the owner, 5 Oct 2026: "the new writing convention is 1193R1")
 const modelOf = c => c === 'S' ? 'SP1420' : c === 'A' ? 'A1407D' : /^A[2-9]$/.test(c || '') ? 'A1407D-' + c.slice(1) : (c || '')
 const dayTitle = d => d.kind === 'setting' ? 'Day 0 (setting)' : (WORK[d.kind] ? WORK[d.kind] + ' · ' : '') + 'Day ' + d.day_no
 const empty = v => v == null || v === ''
@@ -763,7 +763,7 @@ function editorHtml(scope, f, label, o, j) {
   else if (f === 'mobilisation_fee_ksh') body = `<div class="picks">${[0, 15000, 20000, 25000, 30000].map(v => `<button class="pick" data-val="${v}" aria-pressed="${Number(o[f]) === v && !empty(o[f])}">${v ? 'KES ' + v.toLocaleString('en-US') : scope === 'day' ? 'None this day' : 'None'}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="another amount"><button class="act yes" data-save="1">Save</button></div>`
   else if (f === 'crane_price_ksh') body = `<div class="picks">${[10800, 14000, 15000, 16000, 17000, 18000, 19000, 20000].map(v => `<button class="pick" data-val="${v}" aria-pressed="${Number(o[f]) === v && !empty(o[f])}">${'KES ' + v.toLocaleString('en-US')}${v === 14000 ? ' · default' : ''}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="another amount"><button class="act yes" data-save="1">Save</button></div>`
   else if (f === 'pumping_fee_ksh') { const p = props[j.id] || {}, ph = p.site_fee ?? p.client_fee ?? 650; body = `<div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="${ph}"><button class="act yes" data-save="1">Save</button></div><div class="why">a m³ — the placeholder is the fee last charged${p.site_fee != null ? ' at this site' : p.client_fee != null ? ' to this client' : ''}</div>` }
-  else body = `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" ${f.startsWith('engine') ? 'inputmode="decimal" placeholder="1,268.1"' : f === 'reporting_time' ? 'type="time"' : f === 'job_number' ? `inputmode="text" placeholder="${isWork(j) ? '1192·R1' : '1192'}"` : f === 'maps_pin_url' ? 'inputmode="url" placeholder="https://maps.app.goo.gl/…"' : f === 'start_line' ? `placeholder="${esc(placeOf(j))}"` : f === 'end_line' ? 'placeholder="Westlands - Golden Mansion"' : ''}><button class="act yes" data-save="1">Save</button></div>`
+  else body = `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" ${f.startsWith('engine') ? 'inputmode="decimal" placeholder="1,268.1"' : f === 'reporting_time' ? 'type="time"' : f === 'job_number' ? `inputmode="text" placeholder="${isWork(j) ? '1193R1' : '1192'}"` : f === 'maps_pin_url' ? 'inputmode="url" placeholder="https://maps.app.goo.gl/…"' : f === 'start_line' ? `placeholder="${esc(placeOf(j))}"` : f === 'end_line' ? 'placeholder="Westlands - Golden Mansion"' : ''}><button class="act yes" data-save="1">Save</button></div>`
   return `<div class="editor" data-scope="${scope}" data-f="${f}" data-id="${o.id}"><div class="k">${label}</div>${sug ? `<div class="picks">${sug}</div>` : ''}${body}${!empty(o[f]) && !['site', 'card_kind', 'day_date', 'shift', 'kind'].includes(f) ? '<button class="act quiet" data-val="" style="justify-self:start">Clear it</button>' : ''}</div>`
 }
 function shellHtml(j) {
