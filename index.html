@@ -208,17 +208,26 @@
   .calnav .ask { min-height: 34px; }
   .cal { background: var(--card); border: 1px solid var(--edge); border-radius: 18px; padding: 8px 5px 5px; }
   .dow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); font-size: 11px; color: var(--body); text-align: center; padding-bottom: 5px; }
-  .calgrid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-  .cell { min-height: 82px; min-width: 0; padding: 3px 1px 4px; border: 0; border-top: 1px solid var(--edge); border-radius: 0; background: transparent; display: flex; flex-direction: column; align-items: stretch; gap: 2px; color: var(--strong); text-align: left; }
+  .calgrid { display: grid; }
+  .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 2px; min-height: 86px; }
+  .cell { min-width: 0; padding: 3px 1px 4px; border: 0; border-top: 1px solid var(--edge); border-radius: 0; background: transparent; display: flex; flex-direction: column; align-items: stretch; gap: 2px; color: var(--strong); text-align: left; }
   .cell .num { align-self: center; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
   .cell.out .num { color: var(--body); opacity: .6; }
-  .cell.out .bar { opacity: .5; }
+  .bar.out { opacity: .5; }
   .cell.today .num { background: #ff453a; color: #fff; }
   .cell[aria-pressed="true"] { background: var(--track); border-radius: 10px; }
   .cell:focus-visible { outline: 2px solid var(--primary-ink); outline-offset: -2px; }
-  .bar { --mc: #94a3b8; font-size: 10px; line-height: 14px; font-weight: 600; padding: 0 3px; border-radius: 4px; white-space: nowrap; overflow: hidden; background: color-mix(in srgb, var(--mc) 28%, transparent); color: color-mix(in srgb, var(--mc) 45%, #fff); }
+  .bar { --mc: #94a3b8; position: relative; z-index: 1; pointer-events: none; margin: 0 1px; min-width: 0; font-size: 10px; line-height: 14px; font-weight: 600; padding: 0 3px; border-radius: 4px; white-space: nowrap; overflow: hidden; background: color-mix(in srgb, var(--mc) 28%, transparent); color: color-mix(in srgb, var(--mc) 45%, #fff); }
   .bar.none { background: transparent; box-shadow: inset 0 0 0 1px var(--edge-top); color: var(--strong); }
   .bar.card { background: color-mix(in srgb, var(--mc) 15%, transparent); color: color-mix(in srgb, var(--mc) 60%, #cbd5e1); }
+  /* a job is one bar across its days: where it runs on, the corner is square and the gap closed */
+  .bar.joinl { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: 0; }
+  .bar.joinr { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0; }
+  /* Day 0 — the setting day: hatched in the machine's colour, ringed, marked D0 */
+  .bar.d0 { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--mc) 55%, transparent) 0 4px, color-mix(in srgb, var(--mc) 16%, transparent) 4px 8px); box-shadow: inset 0 0 0 1px var(--mc); color: #fff; }
+  /* a repair or service day: no fill, a dashed ring, marked REP / SVC */
+  .bar.repair, .bar.service, .bar.task { background: var(--card); box-shadow: none; outline: 1px dashed var(--mc); outline-offset: -1px; color: color-mix(in srgb, var(--mc) 55%, #fff); }
+  .bar .tag { display: inline-block; font-size: 8.5px; line-height: 11px; font-weight: 800; letter-spacing: .02em; padding: 0 3px; margin-right: 3px; border-radius: 3px; background: var(--mc); color: #0b1220; vertical-align: 1px; }
   .moreb { font-size: 10px; line-height: 12px; color: var(--body); padding-left: 3px; }
   .jobrow { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; width: 100%; text-align: left; border: 1px solid var(--edge); }
   .jobrow .code { --mc: #94a3b8; font-size: 17px; min-width: 46px; text-align: center; padding: 4px 6px; border-radius: 10px; background: color-mix(in srgb, var(--mc) 24%, transparent); color: color-mix(in srgb, var(--mc) 45%, #fff); }
@@ -631,6 +640,42 @@ function gapsOf(j) { let n = (isWork(j) ? JOB_REQ_WORK : JOB_REQ).filter(f => em
 const liveJobs = () => (cal ? cal.jobs.filter(j => j.status !== 'cancelled') : [])
 // the badge on the tab: the shells of today and tomorrow that still have gaps
 function jobsToFill() { if (!cal) return 0; const soon = isoDay(new Date(atNoon(cal.today).getTime() + 86400e3)); return liveJobs().filter(j => j.status !== 'done' && j.days.some(d => d.day_date >= cal.today && d.day_date <= soon) && gapsOf(j)).length }
+// THE MONTH'S BARS (the owner, 5 Oct 2026: "day zeros on the bot app's calendar should be noticeable" · "as should repair days" · "multi-job
+// days should be one bar that spans the days of the job"). A job is ONE bar across the days it runs, a week at a time; its Day 0 (the
+// setting day) is a hatched stretch of that bar marked D0; a repair or service day is a dashed bar marked REP / SVC.
+const lookOf = e => { const k = e.plan ? (isWork(e.j) ? e.j.card_kind : e.d.kind) : (/^day\s*0/i.test(e.l.day_label || '') ? 'setting' : e.l.kind); return k === 'setting' ? 'd0' : k === 'repair' || k === 'service' || k === 'task' ? k : 'job' }
+const runKey = e => (e.plan ? 'p' + e.j.id : 'c' + e.l.card + '|' + (e.machine || ''))
+function weekBars(week) {
+  const days = week.map(iso => entriesOf(iso)), rank = m => { const i = MORDER.indexOf(m); return i < 0 ? 99 : i }
+  const on = (k, iso) => entriesOf(iso).some(e => runKey(e) === k)
+  const groups = []   // one job's unbroken stretch of days inside this week
+  days.forEach((es, c) => es.forEach(e => {
+    const k = runKey(e), look = lookOf(e), g = groups.find(x => x.key === k && x.col + x.span >= c)
+    if (!g) return groups.push({ key: k, e, col: c, span: 1, segs: [{ col: c, span: 1, look, e }] })
+    if (g.col + g.span > c) return   // the same job twice that day (a day and a night): one bar
+    g.span++
+    const last = g.segs[g.segs.length - 1]
+    if (last.look === look) last.span++; else g.segs.push({ col: c, span: 1, look, e })
+  }))
+  const ends = []   // the last column each lane holds
+  for (const g of groups.sort((a, b) => a.col - b.col || rank(a.e.machine) - rank(b.e.machine))) {
+    let lane = ends.findIndex(x => x < g.col); if (lane < 0) lane = ends.length
+    ends[lane] = g.col + g.span - 1; g.lane = lane
+    g.before = g.col === 0 && on(g.key, isoDay(new Date(atNoon(week[0]).getTime() - 86400e3)))
+    g.after = g.col + g.span === 7 && on(g.key, isoDay(new Date(atNoon(week[6]).getTime() + 86400e3)))
+  }
+  return { groups, lanes: ends.length }
+}
+const LOOK_TAG = { d0: 'D0', repair: 'REP', service: 'SVC', task: 'TASK' }
+function weekHtml(week) {
+  const { groups, lanes } = weekBars(week), rows = Math.max(lanes, 3)
+  const cells = week.map((iso, c) => { const n = entriesOf(iso).length; return `<button class="cell ${iso.slice(0, 7) !== calMonth ? 'out' : ''} ${iso === cal.today ? 'today' : ''}" style="grid-column:${c + 1};grid-row:1 / -1" data-cell="${iso}" aria-pressed="${iso === calSel}" aria-label="${longDay(iso)}, ${n} job${n === 1 ? '' : 's'}"><span class="num">${Number(iso.slice(8))}</span></button>` }).join('')
+  const bars = groups.map(g => g.segs.map((s, i) => {
+    const e = s.e, first = i === 0, last = i === g.segs.length - 1
+    return `<span class="bar ${s.look === 'job' ? '' : s.look} ${e.machine ? '' : 'none'} ${e.plan ? '' : 'card'} ${first && !g.before ? '' : 'joinl'} ${last && !g.after ? '' : 'joinr'} ${week[s.col].slice(0, 7) !== calMonth ? 'out' : ''}" style="--mc:${MC[e.machine] || '#94a3b8'};grid-column:${s.col + 1} / span ${s.span};grid-row:${g.lane + 2}">${LOOK_TAG[s.look] ? `<b class="tag">${LOOK_TAG[s.look]}</b>` : ''}(${esc(e.machine || ' ')}) ${esc(e.site || '?')}</span>`
+  }).join('')).join('')
+  return `<div class="week" style="grid-template-rows:30px repeat(${rows}, 14px) minmax(4px, 1fr)">${cells}${bars}</div>`
+}
 function entriesOf(iso) {
   const out = []
   for (const j of liveJobs()) for (const d of j.days) if (d.day_date === iso) out.push({ plan: true, j, d, machine: j.machine_code || null, site: j.site_name, area: j.area_name })
@@ -657,10 +702,7 @@ function renderJobs() {
   for (let i = 0; i < 42; i++) days.push(isoDay(new Date(first.getTime() + (i - lead) * 86400e3)))
   const shown = days[35].slice(0, 7) === calMonth ? days : days.slice(0, 35)
   const dow = Array.from({ length: 7 }, (_, i) => atNoon(days[i]).toLocaleDateString('en-GB', { weekday: 'narrow', timeZone: 'UTC' }))
-  const cell = iso => {
-    const es = entriesOf(iso), show = es.length > 7 ? es.slice(0, 6) : es   // a full fleet's day shows whole, as his own calendar does
-    return `<button class="cell ${iso.slice(0, 7) !== calMonth ? 'out' : ''} ${iso === cal.today ? 'today' : ''}" data-cell="${iso}" aria-pressed="${iso === calSel}" aria-label="${longDay(iso)}, ${es.length} job${es.length === 1 ? '' : 's'}"><span class="num">${Number(iso.slice(8))}</span>${show.map(e => `<span class="bar ${e.machine ? '' : 'none'} ${e.plan ? '' : 'card'}" style="--mc:${MC[e.machine] || '#94a3b8'}">(${esc(e.machine || ' ')}) ${esc(e.site || '?')}</span>`).join('')}${es.length > show.length ? `<span class="moreb">+${es.length - show.length}</span>` : ''}</button>`
-  }
+  const weeks = []; for (let i = 0; i < shown.length; i += 7) weeks.push(shown.slice(i, i + 7))
   const sel = calSel || cal.today, es = entriesOf(sel)
   const row = e => {
     if (!e.plan) return `<section class="item jobrow"><span class="code" style="--mc:${MC[e.machine] || '#94a3b8'}">${esc(e.machine || '?')}</span><div><div class="what">${esc(e.site || '?')}${e.area ? ` · ${esc(e.area)}` : ''}</div><div class="sub">#${esc(e.l.card)} · ${esc(String(e.l.day_label || '').replace(/:$/, ''))}${e.l.m3 ? ` · ${Number(e.l.m3)} m³` : ''}</div></div><span class="chip done">on its card</span></section>`
@@ -668,7 +710,7 @@ function renderJobs() {
     return `<button class="item jobrow" data-job="${e.j.id}"><span class="code" style="--mc:${MC[e.machine] || '#94a3b8'}">${esc(e.machine || '—')}</span><div><div class="what">${esc(e.site)}${e.area ? ` · ${esc(e.area)}` : ''}</div><div class="sub">${[e.j.job_number ? '#' + cardNo(e.j.job_number) : 'no number yet', dayTitle(d), d.shift === 'night' ? 'night' : null, d.reporting_time ? String(d.reporting_time).slice(0, 5) : null, e.j.client ? '[' + e.j.client + ']' : null].filter(Boolean).map(esc).join(' · ')}</div></div>${e.j.status === 'done' ? '<span class="chip done">✓ finished</span>' : g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : '<span class="chip done">✓ filled</span>'}</button>`
   }
   const y = scroller.scrollTop
-  main.innerHTML = `<section class="cal"><div class="dow">${dow.map(x => `<span>${x}</span>`).join('')}</div><div class="calgrid">${shown.map(cell).join('')}</div></section>
+  main.innerHTML = `<section class="cal"><div class="dow">${dow.map(x => `<span>${x}</span>`).join('')}</div><div class="calgrid">${weeks.map(weekHtml).join('')}</div></section>
     ${ongoingHtml()}
     <div class="group"><span>${longDay(sel)}${sel === cal.today ? ' · today' : ''}</span><span>${es.length || 'no'} job${es.length === 1 ? '' : 's'}</span></div>
     ${es.map(row).join('') || '<p class="empty" style="padding:18px 12px">Nothing planned for this day.</p>'}
@@ -787,7 +829,7 @@ function editorHtml(scope, f, label, o, j) {
   // plus a free text option"; the pumping fee pre-populated with the fee last charged (the suggestion above) and typed otherwise
   else if (f === 'mobilisation_fee_ksh') body = `<div class="picks">${[0, 15000, 20000, 25000, 30000].map(v => `<button class="pick" data-val="${v}" aria-pressed="${Number(o[f]) === v && !empty(o[f])}">${v ? 'KES ' + v.toLocaleString('en-US') : scope === 'day' ? 'None this day' : 'None'}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="another amount"><button class="act yes" data-save="1">Save</button></div>`
   else if (f === 'crane_price_ksh') body = `<div class="picks">${[10800, 14000, 15000, 16000, 17000, 18000, 19000, 20000].map(v => `<button class="pick" data-val="${v}" aria-pressed="${Number(o[f]) === v && !empty(o[f])}">${'KES ' + v.toLocaleString('en-US')}${v === 14000 ? ' · default' : ''}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="another amount"><button class="act yes" data-save="1">Save</button></div>`
-  else if (f === 'pumping_fee_ksh') { const p = props[j.id] || {}, ph = p.site_fee ?? p.client_fee ?? 650; body = `<div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur)}" placeholder="${ph}"><button class="act yes" data-save="1">Save</button></div><div class="why">a m³ — the placeholder is the fee last charged${p.site_fee != null ? ' at this site' : p.client_fee != null ? ' to this client' : ''}</div>` }
+  else if (f === 'pumping_fee_ksh') { const p = props[j.id] || {}, ph = p.site_fee ?? p.client_fee ?? 650; body = `<div class="line"><input id="ed-in" autocomplete="off" inputmode="numeric" value="${esc(cur || '650')}" placeholder="${ph}"><button class="act yes" data-save="1">Save</button></div><div class="why">a m³ — 650 unless you change it; the placeholder is the fee last charged${p.site_fee != null ? ' at this site' : p.client_fee != null ? ' to this client' : ''}</div>` }
   else body = `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" ${f.startsWith('engine') ? 'inputmode="decimal" placeholder="1,268.1"' : f === 'expected_m3' ? 'inputmode="decimal" placeholder="120"' : f === 'reporting_time' ? 'type="time"' : f === 'job_number' ? `inputmode="text" placeholder="${isWork(j) ? '1193R1' : '1192'}"` : f === 'maps_pin_url' ? 'inputmode="url" placeholder="https://maps.app.goo.gl/…"' : f === 'start_line' ? `placeholder="${esc(placeOf(j))}"` : f === 'end_line' ? 'placeholder="Westlands - Golden Mansion"' : ''}><button class="act yes" data-save="1">Save</button></div>`
   return `<div class="editor" data-scope="${scope}" data-f="${f}" data-id="${o.id}"><div class="k">${label}</div>${sug ? `<div class="picks">${sug}</div>` : ''}${body}${!empty(o[f]) && !['site', 'card_kind', 'day_date', 'shift', 'kind'].includes(f) ? '<button class="act quiet" data-val="" style="justify-self:start">Clear it</button>' : ''}</div>`
 }
@@ -921,17 +963,19 @@ function planHtml() {
     ${p.site_id ? '' : `<div class="two" style="margin-top:8px"><input id="plan-area" autocomplete="off" list="areas" placeholder="Area (a new site)" value="${esc(p.area_name || '')}"><input id="plan-pin" autocomplete="off" inputmode="url" placeholder="Maps pin (optional)" value="${esc(p.maps_pin_url || '')}"></div><datalist id="areas">${(lists.areas || []).map(a => `<option value="${esc(a)}">`).join('')}</datalist>`}
     ${work ? '' : `<div class="label">Client${pr.site_client ? ` <span class="why">· #${esc(pr.site_card)} here was [${esc(pr.site_client)}]</span>` : ''}</div><div class="picks">${(lists.clients || []).slice(0, 8).map(c => chip('client', c)).join('')}</div>${moreSel('plan-client-more', p.client, clientOpts(), 'All clients…')}
     <div class="label">Casting</div><div class="picks">${(lists.castings || []).map(c => `<button class="pick" data-pcast="${esc(c.code)}" aria-pressed="${cast.has(c.code)}">${esc(c.code)} · ${esc(c.name)}</button>`).join('')}</div>
-    <div class="two"><div><div class="label">Expected m³ <span class="why">· the quote</span></div><input id="plan-m3" autocomplete="off" inputmode="decimal" placeholder="120" value="${esc(p.expected_m3 || '')}"></div><div></div></div>
+    <div class="two"><div><div class="label">Expected m³ <span class="why">· the quote</span></div><input id="plan-m3" autocomplete="off" inputmode="decimal" placeholder="120" value="${esc(p.expected_m3 || '')}"></div><div><div class="label">Pumping fee <span class="why">· a m³</span></div><input id="plan-fee" autocomplete="off" inputmode="numeric" placeholder="650" value="${esc(p.pumping_fee_ksh || '')}"></div></div>
+    ${pr.site_fee != null && Number(pr.site_fee) !== Number(p.pumping_fee_ksh) ? `<div class="picks" style="margin-top:6px"><button class="pick use" data-pf="pumping_fee_ksh" data-pv="${esc(String(pr.site_fee))}">Use ${esc(String(pr.site_fee))}<br><span class="why">last charged at this site${pr.site_fee_card ? ` (#${esc(pr.site_fee_card)})` : ''}</span></button></div>` : ''}
+    <div class="label">Mobilisation</div><div class="picks">${[0, 15000, 20000, 25000, 30000].map(v => `<button class="pick" data-pf="mobilisation_fee_ksh" data-pv="${v}" aria-pressed="${Number(p.mobilisation_fee_ksh) === v && p.mobilisation_fee_ksh !== '' && p.mobilisation_fee_ksh != null}">${v ? 'KES ' + v.toLocaleString('en-US') : 'None'}</button>`).join('')}</div>
     <div class="label">Agent${pr.site_agent ? ` <span class="why">· #${esc(pr.site_card)} here was ${esc(pr.site_agent)}</span>` : ''}</div><div class="picks">${[...new Set([pr.site_agent, ...(lists.agents || []).slice(0, 8)].filter(Boolean))].map(a => chip('agent', a)).join('')}</div>${moreSel('plan-agent-more', p.agent, agentOpts(), 'All agents…')}`}
     <div class="label">Machine${work ? '' : ' <span class="why">· leave it for the day if you don’t know yet</span>'}</div><div class="picks">${MORDER.filter(m => m !== 'TRK').map(m => chip('machine_code', m)).join('')}</div>
     <div class="preview" aria-live="polite">${p.site_id || (p.site_text || '').trim() ? `#? [${work ? 'n/a' : esc(p.client || '?')}] (${esc(p.machine_code || '?')}) {${work ? '?' : esc(p.casting || '?')}} - ${cardDate(p.date)} ${work ? esc(modelOf(p.machine_code) || '?') + (p.card_kind === 'repair' ? ' Repairs ' : ' Service ') : ''}${esc(p.site_id ? p.site_name + (p.area_name ? ' ' + p.area_name : '') : (p.site_text || '').trim() + (p.area_name ? ' ' + p.area_name : ''))}` : 'Pick the site.'}</div>
     <div class="sheet-actions"><button class="act quiet" data-close="1">Cancel</button><button class="act yes" data-planit="1" ${p.site_id || (p.site_text || '').trim() ? '' : 'disabled'}>Plan it</button></div>`
 }
-function keepPlanInputs() { if (!plan) return; const g = id => $(id) ? $(id).value : undefined; const d = g('plan-date'), rt = g('plan-rt'), st = g('plan-site'), ar = g('plan-area'), pin = g('plan-pin'), m3 = g('plan-m3'); if (m3 !== undefined) plan.expected_m3 = m3.trim(); if (d) plan.date = d; if (rt !== undefined) plan.reporting_time = rt; if (st !== undefined) plan.site_text = st; if (ar !== undefined) plan.area_name = ar; if (pin !== undefined) plan.maps_pin_url = pin }
+function keepPlanInputs() { if (!plan) return; const g = id => $(id) ? $(id).value : undefined; const d = g('plan-date'), rt = g('plan-rt'), st = g('plan-site'), ar = g('plan-area'), pin = g('plan-pin'), m3 = g('plan-m3'), fee = g('plan-fee'); if (m3 !== undefined) plan.expected_m3 = m3.trim(); if (fee !== undefined) plan.pumping_fee_ksh = fee.replace(/[,\s]/g, ''); if (d) plan.date = d; if (rt !== undefined) plan.reporting_time = rt; if (st !== undefined) plan.site_text = st; if (ar !== undefined) plan.area_name = ar; if (pin !== undefined) plan.maps_pin_url = pin }
 function drawPlan(focusSite) { const top = $('job').scrollTop; $('job-body').innerHTML = planHtml(); $('job').scrollTop = top; siteSearch(); if (focusSite) { const i = $('plan-site'); i.focus(); i.setSelectionRange(i.value.length, i.value.length) } }
 async function openPlan(date, kind) {
   shellJob = null; editing = null
-  plan = { card_kind: kind === 'repair' || kind === 'service' ? kind : 'job', date: date || (cal && cal.today), shift: 'day', site_id: null, site_name: null, area_name: '', site_text: '', maps_pin_url: '', client: null, casting: '', agent: null, machine_code: null, reporting_time: '', expected_m3: '', props: {} }
+  plan = { card_kind: kind === 'repair' || kind === 'service' ? kind : 'job', date: date || (cal && cal.today), shift: 'day', site_id: null, site_name: null, area_name: '', site_text: '', maps_pin_url: '', client: null, casting: '', agent: null, machine_code: null, reporting_time: '', expected_m3: '', pumping_fee_ksh: '650', mobilisation_fee_ksh: '0', props: {} }   // the owner, 5 Oct 2026: "pumping fee preselected to 650 and mobilisation preselected to none"
   $('job-body').innerHTML = `<h2>${plan.card_kind === 'job' ? 'Plan a job' : 'Plan a ' + plan.card_kind + ' day'}</h2><p class="hint">Opening…</p>`; if (!$('job').open) $('job').showModal()
   await needLists(); if (plan) drawPlan()
 }
@@ -960,7 +1004,7 @@ $('job').addEventListener('click', async e => {
     if (b.dataset.pcast) { const set = new Set(String(plan.casting || '').split('/').filter(Boolean)); set.has(b.dataset.pcast) ? set.delete(b.dataset.pcast) : set.add(b.dataset.pcast); plan.casting = [...set].join('/'); return drawPlan() }
     if (b.dataset.planit) {
       b.disabled = true
-      const body = { action: 'job_new', card_kind: plan.card_kind, date: plan.date, shift: plan.shift, reporting_time: plan.reporting_time || null, expected_m3: plan.card_kind === 'job' && plan.expected_m3 ? plan.expected_m3 : null, client: plan.client, casting: plan.casting || null, agent: plan.agent, machine_code: plan.machine_code, maps_pin_url: plan.maps_pin_url || null, ...(plan.site_id ? { site_id: plan.site_id } : { site_name: plan.site_text.trim(), area_name: (plan.area_name || '').trim() }) }
+      const body = { action: 'job_new', card_kind: plan.card_kind, date: plan.date, shift: plan.shift, reporting_time: plan.reporting_time || null, expected_m3: plan.card_kind === 'job' && plan.expected_m3 ? plan.expected_m3 : null, ...(plan.card_kind === 'job' ? { pumping_fee_ksh: plan.pumping_fee_ksh || null, mobilisation_fee_ksh: plan.mobilisation_fee_ksh === '' || plan.mobilisation_fee_ksh == null ? null : plan.mobilisation_fee_ksh } : {}), client: plan.client, casting: plan.casting || null, agent: plan.agent, machine_code: plan.machine_code, maps_pin_url: plan.maps_pin_url || null, ...(plan.site_id ? { site_id: plan.site_id } : { site_name: plan.site_text.trim(), area_name: (plan.area_name || '').trim() }) }
       const date = plan.date, out = await jobSay(body)
       if (!out) { b.disabled = false; return }
       toast(out.reply || '✓ Planned'); calSel = date; if (date.slice(0, 7) !== calMonth) { calMonth = date.slice(0, 7); await loadCal() }
