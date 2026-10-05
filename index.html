@@ -721,7 +721,8 @@ function valueOf(scope, f, o, j) {
 // what the bot proposes for a gap, never filed until he taps (R128)
 function suggestions(scope, f, o, j) {
   const p = props[j.id] || {}, out = []
-  if (scope === 'job') {
+  if (scope === 'crane' && f === 'crane_line' && o.id > 0) return out   // the bot proposes the FIRST truck line only (where the machine ended)
+  if (scope === 'job' || scope === 'crane') {
     if (f === 'job_number' && isWork(j)) { const n = j.card_kind === 'service' ? p.service_number : p.repair_number; if (n) out.push([cardNo(n), `on the newest card number, #${String(n).replace(/[RST]\d+$/, '')}`]) }
     else if (f === 'job_number') { if (p.b_number) out.push([p.b_number, `another machine is at ${j.site_name} that day`]); if (p.next_number) out.push([String(p.next_number), 'the next free number']) }
     if (f === 'casting' && isWork(j)) { const sv = j.card_kind === 'service', id = sv ? p.service_id : p.repair_id, lc = sv ? p.service_last_card : p.repair_last_card; if (id) out.push([id, lc ? `${j.machine_code}'s last ${sv ? 'service' : 'repair'} card was #${lc}` : `${j.machine_code || 'this machine'}'s first ${sv ? 'service' : 'repair'} card`]) }
@@ -774,7 +775,8 @@ function shellHtml(j) {
     <div class="meta" style="margin:6px 0 0">${j.status === 'done' ? '<span class="chip done">✓ finished</span>' : j.status === 'missed' ? '<span class="chip need">Missed</span>' : j.status === 'started' ? '<span class="chip info">Under way</span>' : '<span class="chip">Planned</span>'}${g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : '<span class="chip done">✓ shell filled</span>'}${j.source !== 'owner' ? `<span class="chip">from ${esc(j.source)}</span>` : ''}</div>
     <div class="titleline">${titleLine(j)}</div>
     <div class="secth"><span>The job</span><span>tap a line to change it</span></div>
-    ${(isWork(j) ? JOB_ROWS_WORK(j) : JOB_ROWS).map(([f, label]) => rowOf('job', f, label, j)).join('')}
+    ${(isWork(j) ? JOB_ROWS_WORK(j) : JOB_ROWS).filter(([f]) => f !== 'crane_line' && f !== 'crane_price_ksh').map(([f, label]) => rowOf('job', f, label, j)).join('')}
+    ${craneBlock(j, rowOf)}
     ${[...j.days].sort((a, b) => a.day_date < b.day_date ? -1 : 1).map(d => `<div class="secth"><span>${dayTitle(d)} · ${longDay(d.day_date)}${d.shift === 'night' ? ' · night' : ''}</span>${j.days.length > 1 ? `<button class="act quiet" data-dropday="${d.id}" style="min-height:30px;padding:2px 8px;font-size:12.5px">Take this day off</button>` : ''}</div>${(isWork(j) ? DAY_ROWS_WORK : DAY_ROWS).map(([f, label]) => rowOf('day', f, label, d)).join('')}`).join('')}
     <div class="acts"><button class="act" data-addday="${next}">+ Day on ${longDay(next)}</button>${isWork(j) || j.days.some(d => d.day_no === 0) ? '' : `<button class="act quiet" data-addday="${before}" data-setting="1">+ Day 0 (setting) on ${longDay(before)}</button>`}</div>
     <div class="line" style="margin-top:8px"><input type="date" id="add-date" value="${next}" aria-label="Another date for a new day"><button class="act quiet" data-adddayat="1">+ Day on this date</button></div>
@@ -783,11 +785,27 @@ function shellHtml(j) {
       <div class="acts"><button class="act" data-missedkind="hired">We hired a pump</button><button class="act" data-missedkind="lost">Lost the job</button><button class="act quiet" data-missedopen="0">Not missed</button></div>` : ''}
     <div class="sheet-actions" style="grid-template-columns:auto auto 1fr">${j.status === 'done' ? `<button class="act quiet" data-status="started">Not finished</button>` : j.status === 'missed' ? `<button class="act quiet" data-status="planned">Not missed after all</button>` : `<button class="act quiet" data-status="cancelled">Cancel the job</button>`}${['planned', 'started'].includes(j.status) && !missedOpen ? '<button class="act quiet" data-missedopen="1">Missed</button>' : j.status !== 'done' && j.status !== 'missed' ? '<button class="act quiet" data-status="done">Mark finished</button>' : '<span></span>'}<button class="act yes" data-close="1">Done</button></div>`
 }
+// W43 (the owner, 5 Oct 2026: "the bot app has to support multiple crane trip lines per card"): the card's truck lines, each with its
+// own price. A shell with none shows one empty line; "+ Another truck line" shows one more to fill.
+let craneExtra = false
+function craneLinesOf(j) {
+  const ls = Array.isArray(j.crane_lines) && j.crane_lines.length ? j.crane_lines : (j.crane_line ? String(j.crane_line).split('\n').filter(Boolean).map((line, i) => ({ line, price_ksh: i === 0 ? j.crane_price_ksh : null })) : [])
+  const rows = ls.map((x, i) => ({ id: i, crane_line: x.line, crane_price_ksh: x.price_ksh, real: true }))
+  if (!rows.length || craneExtra) rows.push({ id: rows.length, crane_line: null, crane_price_ksh: null, real: false })
+  return rows
+}
+function craneBlock(j, rowOf) {
+  const cl = craneLinesOf(j), many = cl.length > 1, real = cl.filter(o => o.real).length
+  const head = '<div class="secth"><span>' + (many ? 'Truck lines' : 'Truck line') + '</span><span>' + (many ? 'each with its own price' : '') + '</span></div>'
+  const rows = cl.map((o, i) => rowOf('crane', 'crane_line', many ? 'Truck line ' + (i + 1) : 'Truck line', o) + rowOf('crane', 'crane_price_ksh', many ? 'Its price' : 'Crane trip price', o)
+    + (o.real && real > 1 ? '<div class="acts"><button class="act quiet" data-cranedrop="' + o.id + '" style="min-height:30px;padding:2px 8px;font-size:12.5px">Take truck line ' + (i + 1) + ' off</button></div>' : '')).join('')
+  return head + rows + (craneExtra ? '' : '<div class="acts"><button class="act quiet" data-craneadd="1">+ Another truck line</button></div>')
+}
 let missedOpen = false   // the "Missed" row of the shell (W30): hired a pump, or lost; the m³ from the casting line
 async function loadProps(j) { const first = j.days.map(d => d.day_date).sort()[0]; const { data } = await api(`proposals&machine=${encodeURIComponent(j.machine_code || '')}&day=${first}&site=${j.site_id || ''}`).catch(() => ({ data: {} })); props[j.id] = data || {} }
 function drawShell() { const j = cal.jobs.find(x => x.id === shellJob); if (!j) { $('job').close(); return } const top = $('job').scrollTop; $('job-body').innerHTML = shellHtml(j); $('job').scrollTop = top; if (editing && editing.f === 'site') siteSearch() }
 async function openShell(id) {
-  shellJob = id; plan = null; editing = null; missedOpen = false
+  shellJob = id; plan = null; editing = null; missedOpen = false; craneExtra = false
   const j = cal.jobs.find(x => x.id === id); if (!j) return
   $('job-body').innerHTML = shellHtml(j); if (!$('job').open) $('job').showModal()
   await Promise.all([needLists(), loadProps(j)]); if (shellJob === id && !plan) drawShell()
@@ -798,7 +816,8 @@ function siteSearch() {
   el.innerHTML = hits.map(x => `<button class="pick" data-site="${x.id}" aria-pressed="${plan && plan.site_id === x.id}">${esc(x.name)}${x.area ? ' · ' + esc(x.area) : ''}</button>`).join('') || (qy ? '<span class="why">No site in the file by that name — it will be kept as a new site.</span>' : '')
 }
 async function saveField(scope, f, id, value) {
-  const body = scope === 'job' ? { action: 'job_set', job: shellJob, field: f, value } : { action: 'job_day_set', day_id: id, field: f, value }
+  const body = scope === 'job' ? { action: 'job_set', job: shellJob, field: f, value } : scope === 'crane' ? { action: 'job_crane', job: shellJob, op: f === 'crane_line' ? 'line' : 'price', index: id, value } : { action: 'job_day_set', day_id: id, field: f, value }
+  if (scope === 'crane') craneExtra = false
   const ok = await jobSay(body); if (!ok) return
   editing = null
   const j = cal.jobs.find(x => x.id === shellJob); if (j && (f === 'machine_code' || f === 'site')) await loadProps(j)
@@ -869,6 +888,8 @@ $('job').addEventListener('click', async e => {
   if (b.dataset.addday) { b.disabled = true; const out = await jobSay({ action: 'job_day_add', job: j.id, date: b.dataset.addday, kind: b.dataset.setting ? 'setting' : 'job' }); if (out) toast(out.reply); return drawShell() }
   if (b.dataset.adddayat) { const d = $('add-date').value; if (!d) return toast('Pick the date first.'); b.disabled = true; const out = await jobSay({ action: 'job_day_add', job: j.id, date: d, kind: 'job' }); if (out) toast(out.reply); return drawShell() }
   if (b.dataset.shiftjob) { const ed0 = b.closest('.editor'), d = $('ed-in').value; if (!ed0 || !d) return toast('Pick the date first.'); b.disabled = true; const out = await jobSay({ action: 'job_shift', day_id: Number(ed0.dataset.id), date: d }); if (out) { toast(out.reply); editing = null; calSel = d; await loadProps(cal.jobs.find(x => x.id === shellJob) || j) } return drawShell() }
+  if (b.dataset.craneadd) { craneExtra = true; const n = craneLinesOf(j).length - 1; editing = { scope: 'crane', f: 'crane_line', id: n }; drawShell(); const i = $('ed-in'); if (i) i.focus(); return }
+  if (b.dataset.cranedrop !== undefined) { b.disabled = true; const out = await jobSay({ action: 'job_crane', job: j.id, op: 'drop', index: Number(b.dataset.cranedrop) }); if (out) toast('✓ Truck line taken off.'); editing = null; return drawShell() }
   if (b.dataset.dropday) { b.disabled = true; const out = await jobSay({ action: 'job_day_drop', day_id: Number(b.dataset.dropday) }); if (out) toast(out.reply); return drawShell() }
   const ed = b.closest('.editor'); if (!ed) return
   const scope = ed.dataset.scope, f = ed.dataset.f, id = Number(ed.dataset.id)
