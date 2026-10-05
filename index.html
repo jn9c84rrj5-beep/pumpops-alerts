@@ -118,6 +118,13 @@
   .thread .ln.me { justify-self: end; background: var(--ok-bg); color: var(--ink); }
   .thread .ln time { display: block; margin-top: 2px; font-size: 11px; color: var(--body); }
   .item.solved .thread { display: none; }
+  /* Investigating: one block a man — what you asked him, then the one thread, the bot's reading under each of his messages */
+  .item.man .who { font-weight: 700; color: var(--ink); font-size: 15px; }
+  .ask-q { margin-top: 8px; padding: 8px 10px; border-radius: 12px; border: 1px solid var(--edge); }
+  .ask-q .what { margin-top: 4px; }
+  .thread .reading { max-width: 92%; margin: -1px 0 4px; padding: 7px 10px; border-radius: 0 12px 12px 12px; border: 1px dashed var(--edge-top); font-size: 13px; }
+  .thread .reading .rd { color: var(--body); margin-bottom: 4px; }
+  .act.nudge { justify-self: start; margin-bottom: 8px; }
   .item.solved.open .thread { display: grid; }
 
   /* solved: one quiet line, the answer kept; tap to open */
@@ -420,6 +427,18 @@ function derive() {
     if (groups.length) groups.forEach((g, gi) => add(gi, { head: first.replace(/^[^\w]+/u, ''), what: g.issue, more: '', buttons: g.buttons, plain: [] }))
     else add(0, { head: '', what: first, more: rest.join('\n'), buttons: null, plain })
   }
+  // A PRIVATE REPLY IS PART OF ITS MAN'S THREAD (the owner, 5 Oct 2026: "multiple ask hims should be grouped in per staff member under the
+  // investigating tab and any private replies put in them like a thread"): it never stands alone in Needs you
+  for (const t of things) if (t.r.data && t.r.data.private_reply) { t.reply = true; t.replyOf = t.r.data.staff_id ?? null }
+  // THE SAME ISSUE ONCE (the owner, 5 Oct 2026: "yes fix those four" — one unknown spanner set stood three times): the things that carry
+  // the same issue of the same machine and day are one — the newest stands, and an answer to any of them answers all
+  const byIssue = new Map()
+  for (const t of things) { const fp = t.buttons && t.buttons[0] && t.buttons[0].fp; if (!fp || t.reply) continue; const k = `${fp}|${t.r.machine_code}|${t.r.day_date}`; if (!byIssue.has(k)) byIssue.set(k, []); byIssue.get(k).push(t) }
+  for (const g of byIssue.values()) {
+    if (g.length < 2) continue
+    const done = g.find(t => t.solved), keep = g.reduce((a, b) => (a.at > b.at ? a : b))
+    for (const t of g) { if (t !== keep) t.dup = true; if (done && !t.solved) { t.solved = true; t.answer = done.answer } }
+  }
 }
 // FILTERS ON EVERY PAGE (the owner, 3 Oct 2026: "i need machine, staff, and job (number+site) filters for every page on the bot app.
 // actually, also a filter for item/issue/report type"): what a thing is about — its machine, the men named in it, the planned job
@@ -450,9 +469,9 @@ const jobOf = t => { const j = (feed.jobs || []).find(x => x.machine === t.r.mac
 const facetOk = t => (!facet.machine || t.r.machine_code === facet.machine) && (!facet.who || whoOf(t).includes(facet.who)) && (!facet.job || jobOf(t) === facet.job) && (!facet.kind || kindOf(t) === facet.kind)
 const facetsOn = () => Object.values(facet).filter(Boolean).length
 const mine = (d = dept, filtered = true) => things.filter(t => (d === 'all' || t.dept === d) && (!filtered || facetOk(t)))
-const pending = d => mine(d).filter(t => t.needs && !t.solved)
-const waiting = d => pending(d).filter(t => t.asked)
-const todo = d => pending(d).filter(t => !t.asked)
+const pending = d => mine(d).filter(t => t.needs && !t.solved && !t.dup)
+const waiting = d => pending(d).filter(t => t.asked && !t.reply)
+const todo = d => pending(d).filter(t => !t.asked && !t.reply)   // a private reply is in its man's thread under Investigating
 const solved = d => mine(d).filter(t => t.needs && t.solved)
 
 const hm = iso => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
@@ -473,6 +492,48 @@ function brief() {
   return `<b>Kit</b> — transfers, items, what stands at the sites.${tail}`
 }
 
+// ── INVESTIGATING: ONE THREAD A MAN (the owner, 5 Oct 2026: "multiple ask hims should be grouped in per staff member under the
+// investigating tab and any private replies put in them like a thread") ──
+// A man's block: what you asked him (each thing still waiting on him, with its buttons), then ONE thread — every message of your private
+// chat with him since the first of those taps, from all his watches together, oldest first — and under each of his messages the bot's
+// reading of it (the reply's own buttons: "It's a new truck", "Note it on …", "Unrelated").
+const firstName = n => String(n || '').replace(/^\d/, '').split(' ')[0]
+function threadsOf(d) {
+  const men = new Map()
+  const manOf = (key, name) => { if (!men.has(key)) men.set(key, { key, name, asked: [], replies: [], watches: [] }); const m = men.get(key); if (name && !m.name) m.name = name; return m }
+  const idOf = name => { const m = (feed.men || []).find(x => x.name === name); return m ? String(m.id) : 'n:' + name }
+  for (const t of waiting(d)) { if (t.reply || t.dup) continue; const name = t.priv ? t.priv.name : null; manOf(name ? idOf(name) : 'x:' + t.key, name).asked.push(t) }
+  for (const t of mine(d).filter(t => t.reply && t.needs && !t.solved)) {
+    const name = (feed.men || []).find(x => String(x.id) === String(t.replyOf))?.name || (t.head.match(/^(\S+) replied privately/) || [])[1] || null
+    manOf(t.replyOf != null ? String(t.replyOf) : 'n:' + name, name).replies.push(t)
+  }
+  for (const p of feed.private || []) { const k = idOf(p.name); if (men.has(k)) men.get(k).watches.push(p) }
+  return [...men.values()].map(m => {
+    const seen = new Set(), msgs = []
+    for (const p of m.watches) for (const x of p.messages) { const k = x.at + '|' + (x.text || x.type); if (!seen.has(k)) { seen.add(k); msgs.push(x) } }
+    msgs.sort((a, b) => (a.at < b.at ? -1 : 1))
+    const replied = m.replies.length > 0 || msgs.some(x => !x.me)
+    return { ...m, msgs, replied, last: [...m.asked.map(t => t.at), ...msgs.map(x => x.at)].sort().pop() || '' }
+  }).sort((a, b) => (b.replied - a.replied) || (a.last < b.last ? 1 : -1))
+}
+const replyText = t => (String(t.what).match(/private answer: "([\s\S]*)"$/) || [])[1] ?? String(t.what)
+function manBlock(m) {
+  const first = firstName(m.name) || 'him'
+  const asked = m.asked.map(t => `<div class="ask-q" data-key="${t.key}" id="m${t.r.id}-${t.item}"><div class="meta"><span class="chip info">Asked</span>${t.r.machine_code ? `<span>${esc(t.r.machine_code)}</span>` : ''}<span>${dated(t.at)}</span></div><div class="what">${esc(t.what)}</div><div class="acts">${buttonsOf(t)}</div></div>`).join('')
+  // his messages, each with the bot's reading of it (the reply thing whose words are that message) — or a reply with no message kept
+  const used = new Set()
+  const lines = m.msgs.map(x => {
+    const r = !x.me ? m.replies.find(t => !used.has(t.key) && (x.text ? replyText(t).trim().slice(0, 80) === String(x.text).trim().slice(0, 80) : /\((a|an) (photo|media|image|voice note)\)/.test(replyText(t)) && Math.abs(new Date(t.at) - new Date(x.at)) < 6 * 3600e3)) : null
+    if (r) used.add(r.key)
+    return `<div class="ln ${x.me ? 'me' : ''}">${x.text ? esc(x.text) : `<i>${x.type === 'image' ? 'a photo' : x.type === 'audio' ? 'a voice note' : esc('a ' + x.type)}</i>`}<time>${x.me ? 'You' : esc(first)} · ${when(x.at)}</time></div>${r ? replyActs(r) : ''}`
+  }).join('')
+  const loose = m.replies.filter(t => !used.has(t.key)).map(t => `<div class="ln">${esc(replyText(t))}<time>${esc(first)} · ${dated(t.at)}</time></div>${replyActs(t)}`).join('')
+  const none = !m.msgs.length && !loose ? `<div class="note">${m.watches.some(p => p.chat_found === false) ? `I can't find ${esc(first)}'s private chat on the Mac — his contact there has to carry his full name.` : `Nothing from ${esc(first)} yet — the Mac looks every minute.`}</div>` : ''
+  return `<article class="item man" data-man="${esc(m.key)}"><div class="meta">${m.replied ? '<span class="chip need"><span class="dot"></span>He replied</span>' : '<span class="chip info">Waiting on him</span>'}<span class="who">${esc(m.name || 'Someone the staff list does not know')}</span><span>${m.asked.length} asked</span></div>
+    ${asked}<div class="thread">${m.msgs.length || loose ? `<div class="note">Your private chat with ${esc(first)}, since you first asked</div>` : ''}${lines}${loose}${none}</div></article>`
+}
+// the bot's reading of one of his messages, and its buttons — under the message in the thread
+const replyActs = t => `<div class="reading" data-key="${t.key}" id="m${t.r.id}-${t.item}"><div class="rd">${esc(String(t.r.body).split('\n').find(l => /^→/.test(l)) || 'What it answers:')}</div><div class="acts">${buttonsOf(t)}</div></div>`
 // ── a thing as a card ──
 function buttonsOf(t) {
   if (t.solved && t.needs) return `<button class="act quiet" data-reopen="${t.key}">Reopen — change the answer</button>`
@@ -592,14 +653,16 @@ function render() {
   $('title').textContent = DEPTS[dept].title
   $('date').textContent = new Date(feed.now || Date.now()).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hm(feed.now || Date.now())
   $('brief').innerHTML = brief()
-  $('n-p').textContent = p.length || ''; $('n-i').textContent = w.length || ''; $('n-s').textContent = s.length || ''
+  const threads = threadsOf(dept)
+  $('n-p').textContent = p.length || ''; $('n-i').textContent = threads.length || ''; $('n-s').textContent = s.length || ''
   $('n-f').textContent = facetsOn() || ''
   $('facets').hidden = !facetsOn(); $('facets').innerHTML = Object.entries(facet).filter(([, v]) => v).map(([k, v]) => `<button class="pick" aria-pressed="true" data-facet="${k}">${esc(v)} ×</button>`).join('')
   document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.f === f)))
   let html = boards(f)
   // "Ask him" moves a thing to Investigating (the owner, 2 Oct 2026): it leaves Needs you and waits there until it is answered
-  if (f === 'pending') html += p.length ? p.map(card).join('') : `<p class="empty">Nothing needs you here.${w.length ? ` ${w.length} being investigated.` : ''}</p>`
-  else if (f === 'asked') html += w.length ? [...w.filter(t => t.replied), ...w.filter(t => !t.replied)].map(card).join('') : `<p class="empty">Nothing is being investigated.</p>`
+  const repliedMen = threads.filter(m => m.replied).length
+  if (f === 'pending') html += (repliedMen ? `<button class="act quiet nudge" data-f-go="asked">${repliedMen} ${repliedMen === 1 ? 'man has' : 'men have'} replied — Investigating</button>` : '') + (p.length ? p.map(card).join('') : `<p class="empty">Nothing needs you here.${threads.length ? ` ${threads.length} being investigated.` : ''}</p>`)
+  else if (f === 'asked') html += threads.length ? threads.map(manBlock).join('') : `<p class="empty">Nothing is being investigated.</p>`
   else if (f === 'solved') html += s.length ? s.map(card).join('') : `<p class="empty">Nothing solved yet today.</p>`
   else html += everything() || `<p class="empty">Nothing yet today.</p>`
   html += boardsBelow(f)
@@ -1068,6 +1131,7 @@ document.addEventListener('click', async e => {
   if (b?.dataset.job) return openShell(Number(b.dataset.job))
   if (b?.dataset.plan) return openPlan(b.dataset.plan, b.dataset.plankind)
   if (b?.dataset.f) { filters[dept] = b.dataset.f; scroller.scrollTop = 0; return render() }
+  if (b?.dataset.fGo) { filters[dept] = b.dataset.fGo; scroller.scrollTop = 0; return render() }
   if (b?.dataset.owed) { const id = Number(b.dataset.owed); owedSel.has(id) ? owedSel.delete(id) : owedSel.add(id); return render() }
   if (b?.dataset.owedact) {
     const os = owedGroups().get(b.dataset.g) || [], picked = os.filter(o => owedSel.has(o.id)), ids = (picked.length ? picked : os).map(o => o.id)
