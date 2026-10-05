@@ -844,7 +844,13 @@ function craneFormHtml(o, j) {
   if (f.free) return `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(f.text)}"><button class="act yes" data-save="1">Save</button></div><button class="act quiet" data-cffree="0" style="justify-self:start">Use the form instead</button>`
   const sup = [...new Set([...((lists && lists.crane_suppliers) || ['Ahmed', 'Isaac', 'Omar']), f.supplier].filter(Boolean))].slice(0, 8)
   const yards = ((lists && lists.sites) || []).filter(x => /yard$/i.test(x.name) || x.name === 'Girnni' || x.name === 'Enrich').map(placeWords)
-  return `<div class="two"><div><div class="label" style="margin-top:0">Date</div><input type="date" id="cf-date" value="${esc(f.date)}"></div><div><div class="label" style="margin-top:0">Price</div><input id="cf-price" autocomplete="off" inputmode="numeric" placeholder="14,000" value="${esc(f.price)}"></div></div>
+  // "Machine already on site" (the owner, 5 Oct 2026: "i also need a crane trip option for "Machine already on site". should be suggested
+  // if the previous job the machine was at is the same as the new planned job's"): the first choice of the form; a dashed suggestion
+  // when the machine's last END is this job's own site (R128: offered, filed only by his tap)
+  const onSite = `Truck (${f.machine || j.machine_code || '?'}): Machine already on site`, same = !!p.last_end && !!j.machine_code && p.last_end === placeOf(j)
+  const first = same ? `<div class="picks"><button class="pick use" data-cfquick="${esc(onSite)}">Use “Machine already on site”<br><span class="why">${esc(j.machine_code)} ended at ${esc(p.last_end)} — this job’s own site${p.last_card ? ` (#${esc(p.last_card)})` : ''}</span></button></div><div class="label">or a crane trip</div>`
+    : `<div class="picks"><button class="pick" data-cfquick="${esc(onSite)}">Machine already on site — no trip</button></div><div class="label">or a crane trip</div>`
+  return first + `<div class="two"><div><div class="label" style="margin-top:0">Date</div><input type="date" id="cf-date" value="${esc(f.date)}"></div><div><div class="label" style="margin-top:0">Price</div><input id="cf-price" autocomplete="off" inputmode="numeric" placeholder="14,000" value="${esc(f.price)}"></div></div>
     <div class="picks">${[10800, 14000, 15000, 16000, 17000, 18000, 19000, 20000].map(v => pick('price', String(v), 'KES ' + v.toLocaleString('en-US'))).join('')}</div>
     <div class="label">Machine carried</div><div class="picks">${(cal.machines || MORDER).filter(m => m !== 'TRK').map(m => pick('machine', m)).join('')}</div>
     <div class="label">Supplier</div><div class="picks">${sup.map(s => pick('supplier', s)).join('')}</div><input id="cf-supplier" autocomplete="off" placeholder="another supplier" value="">
@@ -853,7 +859,7 @@ function craneFormHtml(o, j) {
     <div class="label">To</div><div class="picks">${pick('to', '', 'This job — ' + placeOf(j))}${yards.map(y => pick('to', y)).join('')}</div>
     <input id="cf-to" autocomplete="off" placeholder="or search another site" value="${esc(f.to)}"><div class="picks" id="cf-to-hits"></div>
     <div class="preview" id="cf-preview" aria-live="polite"></div>
-    <div class="acts"><button class="act yes" data-cfsave="1">Save this trip</button><button class="act quiet" data-cfquick="Truck (${esc(f.machine || j.machine_code || '?')}): Machine already on site">Machine already on site</button><button class="act quiet" data-cffree="1">Write the line myself</button></div>`
+    <div class="acts"><button class="act yes" data-cfsave="1">Save this trip</button><button class="act quiet" data-cffree="1">Write the line myself</button></div>`
 }
 let craneExtra = false
 function craneLinesOf(j) {
