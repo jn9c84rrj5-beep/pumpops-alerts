@@ -185,7 +185,9 @@
   .pick { font-size: 14px; min-height: 40px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--edge); background: transparent; color: var(--strong); }
   .pick[aria-pressed="true"] { background: var(--ok-bg); border-color: var(--primary); color: var(--primary-ink); }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-  input, textarea { font-size: 16px; width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--edge); background: var(--track); color: var(--ink); }
+  input, textarea, select.more { font-size: 16px; width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--edge); background: var(--track); color: var(--ink); }
+  select.more { margin-top: 8px; font: inherit; font-size: 16px; }
+  select.more:focus-visible { outline: 2px solid var(--primary-ink); outline-offset: 2px; }
   textarea { min-height: 110px; resize: vertical; }
   input::placeholder, textarea::placeholder { color: var(--body); opacity: .8; }
   .preview { margin-top: 14px; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--edge); color: var(--ink); min-height: 44px; font-size: 15px; overflow-wrap: anywhere; }
@@ -773,9 +775,9 @@ function editorHtml(scope, f, label, o, j) {
   else if (f === 'work_title') body = `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="${j.card_kind === 'repair' ? 'Repairs' : 'Engine & Hydraulic Service'}"><button class="act yes" data-save="1">Save</button></div><div class="why">the words of the title between the machine and the place</div>`
   else if (f === 'machine_code') body = `<div class="picks">${(cal.machines || MORDER).filter(m => m !== 'TRK').map(m => `<button class="pick" data-val="${m}" aria-pressed="${o[f] === m}">${m}</button>`).join('')}<button class="pick" data-val="">Not yet</button></div>`
   else if (f === 'site') body = `<input id="ed-in" autocomplete="off" placeholder="Search the sites…"><div class="picks" id="ed-sites"></div><div class="why">A new site? Type its name, then its area:</div><div class="line"><input id="ed-area" autocomplete="off" placeholder="Area (for a new site)"><button class="act yes" data-savesite="1">Save as new</button></div>`
-  else if (f === 'client') body = `<div class="picks">${(lists.clients || []).slice(0, 10).map(c => `<button class="pick" data-val="${esc(c)}" aria-pressed="${o[f] === c}">${esc(c)}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="M"><button class="act yes" data-save="1">Save</button></div>`
+  else if (f === 'client') body = `<div class="picks">${(lists.clients || []).slice(0, 10).map(c => `<button class="pick" data-val="${esc(c)}" aria-pressed="${o[f] === c}">${esc(c)}</button>`).join('')}</div>${moreSel('ed-more', cur, clientOpts(), 'All clients…')}<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="M"><button class="act yes" data-save="1">Save</button></div>`
   else if (f === 'casting') { const day = scope === 'day', on = new Set(cur.split('/').map(x => x.trim()).filter(Boolean)); body = `<div class="picks" id="ed-multi">${(lists.castings || []).map(c => { const v = day ? c.name : c.code; return `<button class="pick" data-multi="${esc(v)}" aria-pressed="${on.has(v)}">${day ? esc(c.name) : esc(c.code) + ' · ' + esc(c.name)}</button>` }).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="${day ? 'Columns/Slab' : 'C/S'}"><button class="act yes" data-save="1">Save</button></div>` }
-  else if (f === 'agent') body = `<div class="picks">${(lists.agents || []).slice(0, 12).map(a => `<button class="pick" data-val="${esc(a)}" aria-pressed="${o[f] === a}">${esc(a)}</button>`).join('')}</div><div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="Agent"><button class="act yes" data-save="1">Save</button></div>`
+  else if (f === 'agent') body = `<div class="picks">${(lists.agents || []).slice(0, 12).map(a => `<button class="pick" data-val="${esc(a)}" aria-pressed="${o[f] === a}">${esc(a)}</button>`).join('')}</div>${moreSel('ed-more', cur, agentOpts(), 'All agents…')}<div class="line"><input id="ed-in" autocomplete="off" value="${esc(cur)}" placeholder="Agent"><button class="act yes" data-save="1">Save</button></div>`
   else if (f === 'notes') body = `<textarea id="ed-in" autocomplete="off">${esc(cur)}</textarea><button class="act yes" data-save="1">Save</button>`
   // QW-29 (the owner, 3 Oct 2026): mobilisation "quick-select options from 15,000 to 30,000 in increments of 5,000 and a free text option";
   // the crane trip price "should default at 14,000, with a 10,800 option and options increasing from 14,000 to 20,000 in increments of 1,000,
@@ -890,6 +892,11 @@ async function saveField(scope, f, id, value) {
   drawShell()
 }
 
+// A DROPDOWN BESIDE THE COMMON CHOICES (the owner, 5 Oct 2026: "i need a dropdown box alongside the common options when planning a new
+// job"): the quick choices are the most used; the dropdown holds every client that has a code and every agent (W47).
+const moreSel = (id, cur, opts, first) => `<select id="${id}" class="more" aria-label="${first}"><option value="">${first}</option>${opts.map(([v, t]) => `<option value="${esc(v)}" ${cur === v ? 'selected' : ''}>${esc(t)}</option>`).join('')}</select>`
+const clientOpts = () => [...((lists && lists.clients_all) || []).map(c => [c.code, c.code + ' — ' + c.name]), ['O-S', 'O-S — on-site (the client is the site)']]
+const agentOpts = () => ((lists && lists.agents_all) || []).map(a => [a, a])
 // ── planning a job: the date and shift, the site (or a new one: name + area, a pin if he has it), what he already knows ──
 function planHtml() {
   const p = plan, pr = p.props || {}
@@ -903,9 +910,9 @@ function planHtml() {
     <div class="label">${work ? 'Place' : 'Site'}</div><input id="plan-site" autocomplete="off" placeholder="${work ? 'Search the sites — Enrich…' : 'Search the sites, or type a new one'}" value="${esc(p.site_text || '')}">
     <div class="picks" id="plan-sites" style="margin-top:6px"></div>
     ${p.site_id ? '' : `<div class="two" style="margin-top:8px"><input id="plan-area" autocomplete="off" list="areas" placeholder="Area (a new site)" value="${esc(p.area_name || '')}"><input id="plan-pin" autocomplete="off" inputmode="url" placeholder="Maps pin (optional)" value="${esc(p.maps_pin_url || '')}"></div><datalist id="areas">${(lists.areas || []).map(a => `<option value="${esc(a)}">`).join('')}</datalist>`}
-    ${work ? '' : `<div class="label">Client${pr.site_client ? ` <span class="why">· #${esc(pr.site_card)} here was [${esc(pr.site_client)}]</span>` : ''}</div><div class="picks">${(lists.clients || []).slice(0, 8).map(c => chip('client', c)).join('')}</div>
+    ${work ? '' : `<div class="label">Client${pr.site_client ? ` <span class="why">· #${esc(pr.site_card)} here was [${esc(pr.site_client)}]</span>` : ''}</div><div class="picks">${(lists.clients || []).slice(0, 8).map(c => chip('client', c)).join('')}</div>${moreSel('plan-client-more', p.client, clientOpts(), 'All clients…')}
     <div class="label">Casting</div><div class="picks">${(lists.castings || []).map(c => `<button class="pick" data-pcast="${esc(c.code)}" aria-pressed="${cast.has(c.code)}">${esc(c.code)} · ${esc(c.name)}</button>`).join('')}</div>
-    <div class="label">Agent${pr.site_agent ? ` <span class="why">· #${esc(pr.site_card)} here was ${esc(pr.site_agent)}</span>` : ''}</div><div class="picks">${[...new Set([pr.site_agent, ...(lists.agents || []).slice(0, 8)].filter(Boolean))].map(a => chip('agent', a)).join('')}</div>`}
+    <div class="label">Agent${pr.site_agent ? ` <span class="why">· #${esc(pr.site_card)} here was ${esc(pr.site_agent)}</span>` : ''}</div><div class="picks">${[...new Set([pr.site_agent, ...(lists.agents || []).slice(0, 8)].filter(Boolean))].map(a => chip('agent', a)).join('')}</div>${moreSel('plan-agent-more', p.agent, agentOpts(), 'All agents…')}`}
     <div class="label">Machine${work ? '' : ' <span class="why">· leave it for the day if you don’t know yet</span>'}</div><div class="picks">${MORDER.filter(m => m !== 'TRK').map(m => chip('machine_code', m)).join('')}</div>
     <div class="preview" aria-live="polite">${p.site_id || (p.site_text || '').trim() ? `#? [${work ? 'n/a' : esc(p.client || '?')}] (${esc(p.machine_code || '?')}) {${work ? '?' : esc(p.casting || '?')}} - ${cardDate(p.date)} ${work ? esc(modelOf(p.machine_code) || '?') + (p.card_kind === 'repair' ? ' Repairs ' : ' Service ') : ''}${esc(p.site_id ? p.site_name + (p.area_name ? ' ' + p.area_name : '') : (p.site_text || '').trim() + (p.area_name ? ' ' + p.area_name : ''))}` : 'Pick the site.'}</div>
     <div class="sheet-actions"><button class="act quiet" data-close="1">Cancel</button><button class="act yes" data-planit="1" ${p.site_id || (p.site_text || '').trim() ? '' : 'disabled'}>Plan it</button></div>`
@@ -918,6 +925,12 @@ async function openPlan(date, kind) {
   $('job-body').innerHTML = `<h2>${plan.card_kind === 'job' ? 'Plan a job' : 'Plan a ' + plan.card_kind + ' day'}</h2><p class="hint">Opening…</p>`; if (!$('job').open) $('job').showModal()
   await needLists(); if (plan) drawPlan()
 }
+$('job').addEventListener('change', e => {
+  const t = e.target; if (!t || t.tagName !== 'SELECT' || !t.value) return
+  if (plan && t.id === 'plan-client-more') { keepPlanInputs(); plan.client = t.value; return drawPlan() }
+  if (plan && t.id === 'plan-agent-more') { keepPlanInputs(); plan.agent = t.value; return drawPlan() }
+  if (t.id === 'ed-more') { const ed = t.closest('.editor'); if (ed) { t.disabled = true; return saveField(ed.dataset.scope, ed.dataset.f, Number(ed.dataset.id), t.value) } }
+})
 $('job').addEventListener('input', e => {
   if (craneForm && /^cf-/.test(e.target.id || '')) { keepCraneInputs(); return craneHits() }
   if (e.target.id === 'ed-in' && editing && editing.f === 'site') return siteSearch()
