@@ -635,7 +635,8 @@ const cardNo = n => String(n == null ? '' : n).replace(/[·.\s]/g, '')   // 1193
 const modelOf = c => c === 'S' ? 'SP1420' : c === 'A' ? 'A1407D' : /^A[2-9]$/.test(c || '') ? 'A1407D-' + c.slice(1) : (c || '')
 const dayTitle = d => d.kind === 'setting' ? 'Day 0 (setting)' : (WORK[d.kind] ? WORK[d.kind] + ' · ' : '') + 'Day ' + d.day_no
 const empty = v => v == null || v === ''
-const expectedOf = j => { const n = j.days.reduce((a, d) => a + (Number(d.expected_m3) || 0), 0); return n ? String(Math.round(n * 100) / 100) : '' }   // W48: the m³ expected over the job's days
+// (the EXPECTED m³ of a job is the quote — "just an overestimation of what quantity was to be pumped, not m3 we missed because we lacked
+// capacity. don't mix that up", the owner, 5 Oct 2026: it is never offered as a missed job's m³)
 function gapsOf(j) { let n = (isWork(j) ? JOB_REQ_WORK : JOB_REQ).filter(f => empty(j[f])).length; for (const d of j.days) { if (empty(d.reporting_time)) n++; if (empty(d.start_line)) n++; if (cal && d.day_date < cal.today && empty(d.engine_hours_end) && d.kind !== 'setting') n++ } return n }
 const liveJobs = () => (cal ? cal.jobs.filter(j => j.status !== 'cancelled') : [])
 // the badge on the tab: the shells of today and tomorrow that still have gaps
@@ -847,7 +848,7 @@ function shellHtml(j) {
     <div class="acts"><button class="act" data-addday="${next}">+ Day on ${longDay(next)}</button>${isWork(j) || j.days.some(d => d.day_no === 0) ? '' : `<button class="act quiet" data-addday="${before}" data-setting="1">+ Day 0 (setting) on ${longDay(before)}</button>`}</div>
     <div class="line" style="margin-top:8px"><input type="date" id="add-date" value="${next}" aria-label="Another date for a new day"><button class="act quiet" data-adddayat="1">+ Day on this date</button></div>
     ${missedOpen && ['planned', 'started'].includes(j.status) ? `<div class="secth"><span>Missed — no pump for it</span><span>it goes on the missed-jobs record</span></div>
-      <div class="two"><div><div class="label">m³</div><input id="missed-m3" inputmode="decimal" autocomplete="off" value="${esc(expectedOf(j) || String((String(j.casting || '').match(/\d+(?:\.\d+)?/) || [''])[0]))}" placeholder="100"></div><div></div></div>
+      <div class="two"><div><div class="label">m³</div><input id="missed-m3" inputmode="decimal" autocomplete="off" value="${esc(String((String(j.casting || '').match(/\d+(?:\.\d+)?/) || [''])[0]))}" placeholder="100"></div><div></div></div>
       <div class="acts"><button class="act" data-missedkind="hired">We hired a pump</button><button class="act" data-missedkind="lost">Lost the job</button><button class="act quiet" data-missedopen="0">Not missed</button></div>` : ''}
     <div class="sheet-actions" style="grid-template-columns:auto auto 1fr">${j.status === 'done' ? `<button class="act quiet" data-status="started">Not finished</button>` : j.status === 'missed' ? `<button class="act quiet" data-status="planned">Not missed after all</button>` : `<button class="act quiet" data-status="cancelled">Cancel the job</button>`}${['planned', 'started'].includes(j.status) && !missedOpen ? '<button class="act quiet" data-missedopen="1">Missed</button>' : j.status !== 'done' && j.status !== 'missed' ? '<button class="act quiet" data-status="done">Mark finished</button>' : '<span></span>'}<button class="act yes" data-close="1">Done</button></div>`
 }
