@@ -762,9 +762,10 @@ function suggestions(scope, f, o, j) {
 }
 function editorHtml(scope, f, label, o, j) {
   const cur = empty(o[f]) ? '' : f.startsWith('engine') ? n1(o[f]) : f === 'reporting_time' ? String(o[f]).slice(0, 5) : f === 'job_number' ? cardNo(o[f]) : String(o[f])
-  const sug = suggestions(scope, f, o, j).filter(x => x[0] !== cur).map(([v, why]) => `<button class="pick use" data-use="${esc(v)}">Use ${esc(v)}<br><span class="why">${esc(why)}</span></button>`).join('')
+  const sug = (scope === 'crane' && f === 'crane_line' ? [] : suggestions(scope, f, o, j)).filter(x => x[0] !== cur).map(([v, why]) => `<button class="pick use" data-use="${esc(v)}">Use ${esc(v)}<br><span class="why">${esc(why)}</span></button>`).join('')
   let body
-  if (f === 'card_kind') body = `<div class="picks">${[['job', 'A pumping job'], ['repair', 'A repair'], ['service', 'A service']].map(([v, t]) => `<button class="pick" data-val="${v}" aria-pressed="${(o[f] || 'job') === v}">${t}</button>`).join('')}</div><div class="why">A repair or service card has no client, casting or fees; its days become ${'repair or service'} days.</div>`
+  if (scope === 'crane' && f === 'crane_line') body = craneFormHtml(o, j)
+  else if (f === 'card_kind') body = `<div class="picks">${[['job', 'A pumping job'], ['repair', 'A repair'], ['service', 'A service']].map(([v, t]) => `<button class="pick" data-val="${v}" aria-pressed="${(o[f] || 'job') === v}">${t}</button>`).join('')}</div><div class="why">A repair or service card has no client, casting or fees; its days become ${'repair or service'} days.</div>`
   else if (f === 'day_date') body = `<div class="line"><input id="ed-in" type="date" value="${esc(cur)}"><button class="act yes" data-save="1">Move this day</button></div>${j.days.length > 1 ? `<button class="act quiet" data-shiftjob="1" style="justify-self:start">Move every day of the job with it</button><div class="why">“Move this day” changes this day only. “Move every day” keeps the other days the same distance from it.</div>` : ''}`
   else if (f === 'shift') body = `<div class="picks">${[['day', 'Day shift'], ['night', 'Night shift']].map(([v, t]) => `<button class="pick" data-val="${v}" aria-pressed="${o[f] === v}">${t}</button>`).join('')}</div>`
   else if (f === 'kind') body = `<div class="picks">${[['job', 'Job day'], ['setting', 'Day 0 (setting)']].map(([v, t]) => `<button class="pick" data-val="${v}" aria-pressed="${o[f] === v}">${t}</button>`).join('')}</div><div class="why">A setting day is Day 0: the machine is set up and nothing is pumped.</div>`
@@ -805,6 +806,53 @@ function shellHtml(j) {
 }
 // W43 (the owner, 5 Oct 2026: "the bot app has to support multiple crane trip lines per card"): the card's truck lines, each with its
 // own price. A shell with none shows one empty line; "+ Another truck line" shows one more to fill.
+// A CRANE TRUCK TRIP IS A FORM (the owner, 5 Oct 2026: "when adding a crane truck trip, i want to see a form-style, where i choose date,
+// supplier, from site and to site, and price"). The form writes the truck line as his cards write one —
+// `Truck (A5) (01/Oct): Ahmed (from Brookside - Brookside One to Syokimau - Jabil Construction)` — "to" left out when it is this
+// job's own site. A line the form cannot read back (Machine already on site, a self-transported hired pump) opens as text.
+let craneForm = null
+const CRANE_RE = /^Truck \(([^)]*)\)(?: \((\d{1,2})\/([A-Za-z]{3})\))?:\s*(.*?)\s*\(from\s+(.*?)(?:\s+to\s+(.*?))?(?:\s*\[[^\]]*\])?\s*\)\s*$/
+const placeWords = s => (s.area ? String(s.area).replace(/\s*\(.*\)\s*$/, '') + ' - ' : '') + s.name   // "Cale (Southern Bypass)" is written Cale on a card
+function craneFormOf(o, j) {
+  const first = j.days.map(d => d.day_date).sort()[0] || cal.today
+  const f = { id: o.id, date: first, machine: j.machine_code || '', supplier: 'Ahmed', from: '', to: '', price: o.crane_price_ksh == null ? '' : String(Number(o.crane_price_ksh)), free: false, text: o.crane_line || '' }
+  const m = CRANE_RE.exec(o.crane_line || '')
+  if (m) {
+    f.machine = m[1] || f.machine; f.supplier = m[4]; f.from = m[5]; f.to = m[6] || ''
+    if (m[2]) { const mo = MON.findIndex(x => x.toLowerCase() === m[3].toLowerCase()); if (mo >= 0) f.date = `${first.slice(0, 4)}-${String(mo + 1).padStart(2, '0')}-${String(m[2]).padStart(2, '0')}` }
+  } else if (o.crane_line) f.free = true
+  const k = /\[\s*(\d+(?:\.\d+)?)\s*k\s*\]/i.exec(o.crane_line || ''); if (!f.price && k) f.price = String(Math.round(Number(k[1]) * 1000))   // "[18k]" as his cards write a price
+  return f
+}
+const craneLineOf = (f, j) => `Truck (${f.machine || '?'}) (${cardDate(f.date, true)}): ${f.supplier || '?'} (from ${f.from || '?'}${f.to && f.to !== placeOf(j) ? ' to ' + f.to : ''})`
+function keepCraneInputs() { if (!craneForm) return; const g = id => $(id) ? $(id).value : undefined; const d = g('cf-date'), fr = g('cf-from'), to = g('cf-to'), pr = g('cf-price'), sp = g('cf-supplier'), tx = g('ed-in'); if (d) craneForm.date = d; if (fr !== undefined) craneForm.from = fr.trim(); if (to !== undefined) craneForm.to = to.trim(); if (pr !== undefined) craneForm.price = pr.replace(/[,\s]/g, ''); if (sp !== undefined && sp.trim()) craneForm.supplier = sp.trim(); if (craneForm.free && tx !== undefined) craneForm.text = tx }
+function craneHits() {
+  for (const k of ['from', 'to']) {
+    const el = $('cf-' + k + '-hits'), inp = $('cf-' + k); if (!el || !inp) continue
+    const qy = inp.value.trim().toLowerCase(), all = (lists && lists.sites) || []
+    const hits = !qy || all.some(x => placeWords(x).toLowerCase() === qy) ? [] : all.filter(x => (x.name + ' ' + (x.area || '')).toLowerCase().includes(qy)).slice(0, 6)
+    el.innerHTML = hits.map(x => `<button class="pick" data-cf="${k}" data-cv="${esc(placeWords(x))}">${esc(placeWords(x))}</button>`).join('')
+  }
+  const pv = $('cf-preview'), j = cal.jobs.find(x => x.id === shellJob); if (pv && j && craneForm) pv.textContent = craneLineOf(craneForm, j) + (craneForm.price ? ' · KES ' + Number(craneForm.price).toLocaleString('en-US') : ' · KES 14,000 (the default)')
+}
+function craneFormHtml(o, j) {
+  if (!craneForm || craneForm.id !== o.id) craneForm = craneFormOf(o, j)
+  const f = craneForm, p = props[j.id] || {}
+  const pick = (k, v, t) => `<button class="pick" data-cf="${k}" data-cv="${esc(v)}" aria-pressed="${String(f[k]) === String(v)}">${esc(t == null ? v : t)}</button>`
+  if (f.free) return `<div class="line"><input id="ed-in" autocomplete="off" value="${esc(f.text)}"><button class="act yes" data-save="1">Save</button></div><button class="act quiet" data-cffree="0" style="justify-self:start">Use the form instead</button>`
+  const sup = [...new Set([...((lists && lists.crane_suppliers) || ['Ahmed', 'Isaac', 'Omar']), f.supplier].filter(Boolean))].slice(0, 8)
+  const yards = ((lists && lists.sites) || []).filter(x => /yard$/i.test(x.name) || x.name === 'Girnni' || x.name === 'Enrich').map(placeWords)
+  return `<div class="two"><div><div class="label" style="margin-top:0">Date</div><input type="date" id="cf-date" value="${esc(f.date)}"></div><div><div class="label" style="margin-top:0">Price</div><input id="cf-price" autocomplete="off" inputmode="numeric" placeholder="14,000" value="${esc(f.price)}"></div></div>
+    <div class="picks">${[10800, 14000, 15000, 16000, 17000, 18000, 19000, 20000].map(v => pick('price', String(v), 'KES ' + v.toLocaleString('en-US'))).join('')}</div>
+    <div class="label">Machine carried</div><div class="picks">${(cal.machines || MORDER).filter(m => m !== 'TRK').map(m => pick('machine', m)).join('')}</div>
+    <div class="label">Supplier</div><div class="picks">${sup.map(s => pick('supplier', s)).join('')}</div><input id="cf-supplier" autocomplete="off" placeholder="another supplier" value="">
+    <div class="label">From</div>${p.last_end && j.machine_code === f.machine && f.from !== p.last_end ? `<div class="picks"><button class="pick use" data-cf="from" data-cv="${esc(p.last_end)}">Use ${esc(p.last_end)}<br><span class="why">${esc(f.machine)} ended there</span></button></div>` : ''}
+    <input id="cf-from" autocomplete="off" placeholder="Search the sites" value="${esc(f.from)}"><div class="picks" id="cf-from-hits"></div>
+    <div class="label">To</div><div class="picks">${pick('to', '', 'This job — ' + placeOf(j))}${yards.map(y => pick('to', y)).join('')}</div>
+    <input id="cf-to" autocomplete="off" placeholder="or search another site" value="${esc(f.to)}"><div class="picks" id="cf-to-hits"></div>
+    <div class="preview" id="cf-preview" aria-live="polite"></div>
+    <div class="acts"><button class="act yes" data-cfsave="1">Save this trip</button><button class="act quiet" data-cfquick="Truck (${esc(f.machine || j.machine_code || '?')}): Machine already on site">Machine already on site</button><button class="act quiet" data-cffree="1">Write the line myself</button></div>`
+}
 let craneExtra = false
 function craneLinesOf(j) {
   const ls = Array.isArray(j.crane_lines) && j.crane_lines.length ? j.crane_lines : (j.crane_line ? String(j.crane_line).split('\n').filter(Boolean).map((line, i) => ({ line, price_ksh: i === 0 ? j.crane_price_ksh : null })) : [])
@@ -821,9 +869,9 @@ function craneBlock(j, rowOf) {
 }
 let missedOpen = false   // the "Missed" row of the shell (W30): hired a pump, or lost; the m³ from the casting line
 async function loadProps(j) { const first = j.days.map(d => d.day_date).sort()[0]; const { data } = await api(`proposals&machine=${encodeURIComponent(j.machine_code || '')}&day=${first}&site=${j.site_id || ''}`).catch(() => ({ data: {} })); props[j.id] = data || {} }
-function drawShell() { const j = cal.jobs.find(x => x.id === shellJob); if (!j) { $('job').close(); return } const top = $('job').scrollTop; $('job-body').innerHTML = shellHtml(j); $('job').scrollTop = top; if (editing && editing.f === 'site') siteSearch() }
+function drawShell() { const j = cal.jobs.find(x => x.id === shellJob); if (!j) { $('job').close(); return } const top = $('job').scrollTop; $('job-body').innerHTML = shellHtml(j); $('job').scrollTop = top; if (editing && editing.f === 'site') siteSearch(); if (editing && editing.scope === 'crane' && editing.f === 'crane_line') craneHits() }
 async function openShell(id) {
-  shellJob = id; plan = null; editing = null; missedOpen = false; craneExtra = false
+  shellJob = id; plan = null; editing = null; missedOpen = false; craneExtra = false; craneForm = null
   const j = cal.jobs.find(x => x.id === id); if (!j) return
   $('job-body').innerHTML = shellHtml(j); if (!$('job').open) $('job').showModal()
   await Promise.all([needLists(), loadProps(j)]); if (shellJob === id && !plan) drawShell()
@@ -871,6 +919,7 @@ async function openPlan(date, kind) {
   await needLists(); if (plan) drawPlan()
 }
 $('job').addEventListener('input', e => {
+  if (craneForm && /^cf-/.test(e.target.id || '')) { keepCraneInputs(); return craneHits() }
   if (e.target.id === 'ed-in' && editing && editing.f === 'site') return siteSearch()
   if (e.target.id === 'plan-site' && plan) { plan.site_text = e.target.value; if (plan.site_id) { plan.site_id = null; plan.site_name = null; plan.area_name = ''; plan.props = {}; return drawPlan(true) } siteSearch(); const pv = document.querySelector('#job .preview'), btn = document.querySelector('#job [data-planit]'); if (btn) btn.disabled = !plan.site_text.trim(); return }
   if (plan && ['plan-date', 'plan-area'].includes(e.target.id)) { keepPlanInputs(); const pv = document.querySelector('#job .preview'); if (pv && (plan.site_id || plan.site_text.trim())) pv.textContent = `#? [${plan.client || '?'}] (${plan.machine_code || '?'}) {${plan.casting || '?'}} - ${cardDate(plan.date)} ${plan.site_id ? plan.site_name + (plan.area_name ? ' ' + plan.area_name : '') : plan.site_text.trim() + (plan.area_name ? ' ' + plan.area_name : '')}` }
@@ -899,14 +948,24 @@ $('job').addEventListener('click', async e => {
   }
   // ── the shell ──
   const j = cal.jobs.find(x => x.id === shellJob); if (!j) return
-  if (b.dataset.edit) { const [scope, f, id] = b.dataset.edit.split(':'); editing = { scope, f, id: Number(id) }; await needLists(); drawShell(); const i = $('ed-in'); if (i && !['client', 'agent', 'casting'].includes(f)) i.focus(); return }
+  if (b.dataset.edit) { const [scope, f, id] = b.dataset.edit.split(':'); editing = { scope, f, id: Number(id) }; craneForm = null; await needLists(); drawShell(); const i = $('ed-in'); if (i && !['client', 'agent', 'casting'].includes(f)) i.focus(); return }
   if (b.dataset.missedopen) { missedOpen = b.dataset.missedopen === '1'; return drawShell() }
   if (b.dataset.missedkind) { b.disabled = true; const out = await jobSay({ action: 'job_missed', job: j.id, hired: b.dataset.missedkind === 'hired', m3: $('missed-m3').value }); if (out) { toast(out.reply); missedOpen = false } return drawShell() }
   if (b.dataset.status) { b.disabled = true; const out = await jobSay({ action: 'job_set', job: j.id, field: 'status', value: b.dataset.status }); if (out && b.dataset.status === 'cancelled') { toast('✓ The job is cancelled — it is off the calendar.'); $('job').close(); return } return drawShell() }
   if (b.dataset.addday) { b.disabled = true; const out = await jobSay({ action: 'job_day_add', job: j.id, date: b.dataset.addday, kind: b.dataset.setting ? 'setting' : 'job' }); if (out) toast(out.reply); return drawShell() }
   if (b.dataset.adddayat) { const d = $('add-date').value; if (!d) return toast('Pick the date first.'); b.disabled = true; const out = await jobSay({ action: 'job_day_add', job: j.id, date: d, kind: 'job' }); if (out) toast(out.reply); return drawShell() }
   if (b.dataset.shiftjob) { const ed0 = b.closest('.editor'), d = $('ed-in').value; if (!ed0 || !d) return toast('Pick the date first.'); b.disabled = true; const out = await jobSay({ action: 'job_shift', day_id: Number(ed0.dataset.id), date: d }); if (out) { toast(out.reply); editing = null; calSel = d; await loadProps(cal.jobs.find(x => x.id === shellJob) || j) } return drawShell() }
-  if (b.dataset.craneadd) { craneExtra = true; const n = craneLinesOf(j).length - 1; editing = { scope: 'crane', f: 'crane_line', id: n }; drawShell(); const i = $('ed-in'); if (i) i.focus(); return }
+  if (b.dataset.cf !== undefined && craneForm) { keepCraneInputs(); craneForm[b.dataset.cf] = b.dataset.cv; return drawShell() }
+  if (b.dataset.cffree !== undefined && craneForm) { keepCraneInputs(); craneForm.free = b.dataset.cffree === '1'; if (craneForm.free && !craneForm.text) craneForm.text = craneLineOf(craneForm, j); return drawShell() }
+  if ((b.dataset.cfsave || b.dataset.cfquick) && craneForm) {
+    keepCraneInputs()
+    if (b.dataset.cfsave && (!craneForm.from || !craneForm.supplier || !craneForm.date)) return toast('Pick the date, the supplier and where it came from.')
+    b.disabled = true
+    const out = await jobSay({ action: 'job_crane', job: j.id, op: 'set', index: craneForm.id, line: b.dataset.cfquick || craneLineOf(craneForm, j), price: b.dataset.cfquick ? null : (craneForm.price || null) })
+    if (!out) { b.disabled = false; return }
+    editing = null; craneForm = null; craneExtra = false; return drawShell()
+  }
+  if (b.dataset.craneadd) { craneExtra = true; craneForm = null; const n = craneLinesOf(j).length - 1; editing = { scope: 'crane', f: 'crane_line', id: n }; drawShell(); const i = $('ed-in'); if (i) i.focus(); return }
   if (b.dataset.cranedrop !== undefined) { b.disabled = true; const out = await jobSay({ action: 'job_crane', job: j.id, op: 'drop', index: Number(b.dataset.cranedrop) }); if (out) toast('✓ Truck line taken off.'); editing = null; return drawShell() }
   if (b.dataset.dropday) { b.disabled = true; const out = await jobSay({ action: 'job_day_drop', day_id: Number(b.dataset.dropday) }); if (out) toast(out.reply); return drawShell() }
   const ed = b.closest('.editor'); if (!ed) return
