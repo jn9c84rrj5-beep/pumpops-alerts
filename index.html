@@ -195,6 +195,9 @@
   input, textarea, select.more { font-size: 16px; width: 100%; min-height: 46px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--edge); background: var(--track); color: var(--ink); }
   select.more { margin-top: 8px; font: inherit; font-size: 16px; }
   select.more:focus-visible { outline: 2px solid var(--primary-ink); outline-offset: 2px; }
+  .photos { display: flex; gap: 8px; overflow-x: auto; margin-top: 8px; }
+  .photos img.gauge { height: 180px; width: auto; max-width: 70%; border-radius: 10px; border: 1px solid var(--edge); background: var(--track); }
+  .photos img.gauge:not([src]) { width: 120px; }
   textarea { min-height: 110px; resize: vertical; }
   input::placeholder, textarea::placeholder { color: var(--body); opacity: .8; }
   .preview { margin-top: 14px; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--edge); color: var(--ink); min-height: 44px; font-size: 15px; overflow-wrap: anywhere; }
@@ -583,8 +586,28 @@ function card(t) {
     <div class="meta">${chip}${d}${t.head ? `<span>${esc(t.head)}</span>` : ''}<span>${dated(t.at)}</span></div>
     <div class="what">${esc(t.what)}</div>
     ${t.answer ? `<div class="answer">${esc(t.answer.text)}</div>` : ''}${t.was ? `<div class="was">was: ${esc(t.was)}</div>` : ''}
-    ${t.more ? `<div class="more">${esc(t.more)}</div>` : ''}${threadHtml(t)}
+    ${t.more ? `<div class="more">${esc(t.more)}</div>` : ''}${photosHtml(t)}${threadHtml(t)}
     <div class="acts">${buttonsOf(t)}</div></article>`
+}
+// THE GAUGE PHOTOS (the owner, 7 Oct 2026, on the fuel check that could not read A5's photos surely: "then it needs to display the image
+// in the alert too"): a fuel card carries its readings; each photo is fetched once, small, when the card is drawn
+const photoCache = new Map()
+function photosHtml(t) {
+  const d = t.r.data || {}, ids = (Array.isArray(d.readings) ? d.readings : d.reading != null ? [d.reading] : []).map(Number).filter(Boolean)
+  if (!ids.length) return ''
+  return `<div class="photos">${ids.map(id => `<img class="gauge" data-reading="${id}" alt="The gauge photo of this reading" ${photoCache.get(id) ? `src="${photoCache.get(id)}"` : ''}>`).join('')}</div>`
+}
+async function hydratePhotos() {
+  for (const img of document.querySelectorAll('img.gauge[data-reading]:not([src])')) {
+    const id = Number(img.dataset.reading)
+    if (photoCache.has(id)) { if (photoCache.get(id)) img.src = photoCache.get(id); continue }
+    photoCache.set(id, '')
+    const { status, data } = await api(`photo&reading=${id}`)
+    const src = status === 200 && data.thumb ? `data:image/jpeg;base64,${data.thumb}` : ''
+    photoCache.set(id, src)
+    if (src) for (const x of document.querySelectorAll(`img.gauge[data-reading="${id}"]`)) x.src = src
+    else img.replaceWith(Object.assign(document.createElement('span'), { className: 'why', textContent: 'photo not kept' }))
+  }
 }
 // the private exchange with the man he asked (W29): read on the Mac from his chat with that man, from the tap until the thing is answered
 function threadHtml(t) {
@@ -698,6 +721,7 @@ function render() {
   main.innerHTML = html
   scroller.scrollTop = y
   navBar()
+  hydratePhotos()
   $('ask').setAttribute('aria-label', dept === 'all' ? 'Ask about today' : `Ask the ${DEPTS[dept].tab} manager`)
 }
 // ══ JOBS (W26) ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
