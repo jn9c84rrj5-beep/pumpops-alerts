@@ -208,33 +208,43 @@
   /* JOBS (W26; the owner, 2 Oct 2026: "a job comes in, i confirm availabilty then add it to my calendar … i'd like the app calendar to
      look/work like that" · "job shells in the bot app where i can click the missing fields"): a month like his own calendar — a bar per
      machine-day reading "(A4) Acacia" — the chosen day's jobs beneath it, and a job's shell with its gaps to tap. */
-  .calnav { display: grid; grid-template-columns: 44px 1fr 44px auto; gap: 4px; align-items: center; margin-top: 10px; }
-  .calnav button { min-height: 44px; border: 0; background: transparent; color: var(--ink); border-radius: 12px; }
-  .calnav .arrow { font-size: 24px; line-height: 1; color: var(--strong); }
-  .calnav .month { font-size: 16px; font-weight: 600; text-align: center; }
-  .calnav .ask { min-height: 34px; }
-  .cal { background: var(--card); border: 1px solid var(--edge); border-radius: 18px; padding: 8px 5px 5px; }
-  .dow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); font-size: 11px; color: var(--body); text-align: center; padding-bottom: 5px; }
+  /* THE CALENDAR, AS HIS iPHONE'S (the owner, 6 Oct 2026: "its too cluttered, refer back to the screenshot i sent you of my iphone
+     calendar, the only things we've added are non-pumping days. reduce text size in the calendar, apply the liquid class-style in there,
+     make pumping days blue like the screenshot, make day 0s grey and a dotted border extension, make repair days orange, service days
+     yellow and task days white, all with max contrast text"): black, a large month title, the controls in glass pills, small bars that
+     carry the kind by colour alone — no machine colours, no tags. */
+  .calnav { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; margin: 6px 2px 0; }
+  .calnav .month { font-size: 30px; font-weight: 800; letter-spacing: -.01em; text-align: left; color: #fff; background: transparent; border: 0; padding: 0; min-height: 44px; }
+  .calnav .glass { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 6px 18px rgba(0, 0, 0, .45); -webkit-backdrop-filter: blur(22px) saturate(180%); backdrop-filter: blur(22px) saturate(180%); }
+  .calnav .glass button { min-height: 38px; min-width: 38px; border: 0; background: transparent; color: #fff; border-radius: 999px; padding: 0 12px; font-size: 15px; font-weight: 600; }
+  .calnav .glass button:active { background: rgba(255, 255, 255, .14); }
+  .calnav .arrow { font-size: 22px; line-height: 1; padding: 0 8px; }
+  .calnav button:focus-visible { outline: 2px solid #0a84ff; outline-offset: 2px; }
+  .cal { background: #000; border: 0; border-radius: 0; padding: 4px 0 0; margin: 0 -2px; }
+  .dow { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); font-size: 11px; font-weight: 600; color: #8e8e93; text-align: center; padding-bottom: 6px; border-bottom: .5px solid #38383a; }
   .calgrid { display: grid; }
-  .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 2px; min-height: 86px; }
-  .cell { min-width: 0; padding: 3px 1px 4px; border: 0; border-top: 1px solid var(--edge); border-radius: 0; background: transparent; display: flex; flex-direction: column; align-items: stretch; gap: 2px; color: var(--strong); text-align: left; }
-  .cell .num { align-self: center; width: 24px; height: 24px; display: grid; place-items: center; border-radius: 50%; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--ink); }
-  .cell.out .num { color: var(--body); opacity: .6; }
-  .bar.out { opacity: .5; }
-  .cell.today .num { background: #ff453a; color: #fff; }
-  .cell[aria-pressed="true"] { background: var(--track); border-radius: 10px; }
-  .cell:focus-visible { outline: 2px solid var(--primary-ink); outline-offset: -2px; }
-  .bar { --mc: #94a3b8; position: relative; z-index: 1; pointer-events: none; margin: 0 1px; min-width: 0; font-size: 10px; line-height: 14px; font-weight: 600; padding: 0 3px; border-radius: 4px; white-space: nowrap; overflow: hidden; background: color-mix(in srgb, var(--mc) 28%, transparent); color: color-mix(in srgb, var(--mc) 45%, #fff); }
-  .bar.none { background: transparent; box-shadow: inset 0 0 0 1px var(--edge-top); color: var(--strong); }
-  .bar.card { background: color-mix(in srgb, var(--mc) 15%, transparent); color: color-mix(in srgb, var(--mc) 60%, #cbd5e1); }
-  /* a job is one bar across its days: where it runs on, the corner is square and the gap closed */
+  .week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: 2px; min-height: 92px; border-bottom: .5px solid #38383a; padding-bottom: 4px; }
+  .cell { min-width: 0; padding: 4px 0 0; border: 0; border-radius: 0; background: transparent; display: flex; flex-direction: column; align-items: center; color: #fff; }
+  .cell .num { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; color: #fff; }
+  .cell .mo { font-size: 11px; font-weight: 700; color: #ff453a; line-height: 12px; margin-bottom: -2px; }
+  .cell.wkend .num { color: #8e8e93; }
+  .cell.out .num { color: #48484a; }
+  .cell.today .num { background: #ff453a; color: #fff; font-weight: 700; }
+  .cell[aria-pressed="true"]:not(.today) .num { background: rgba(255, 255, 255, .16); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); font-weight: 700; }
+  .cell:focus-visible { outline: 2px solid #0a84ff; outline-offset: -2px; border-radius: 8px; }
+  .bar { position: relative; z-index: 1; pointer-events: none; margin: 0 1.5px; min-width: 0; font-size: 9px; line-height: 13px; height: 13px; font-weight: 600;
+    padding: 0 4px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: clip; background: #0b3d6e; color: #fff; }
+  .bar.out { opacity: .55; }
   .bar.joinl { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: 0; }
   .bar.joinr { border-top-right-radius: 0; border-bottom-right-radius: 0; margin-right: 0; }
-  /* Day 0 — the setting day: hatched in the machine's colour, ringed, marked D0 */
-  .bar.d0 { background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--mc) 55%, transparent) 0 4px, color-mix(in srgb, var(--mc) 16%, transparent) 4px 8px); box-shadow: inset 0 0 0 1px var(--mc); color: #fff; }
-  /* a repair or service day: no fill, a dashed ring, marked REP / SVC */
-  .bar.repair, .bar.service, .bar.task { background: var(--card); box-shadow: none; outline: 1px dashed var(--mc); outline-offset: -1px; color: color-mix(in srgb, var(--mc) 55%, #fff); }
-  .bar .tag { display: inline-block; font-size: 8.5px; line-height: 11px; font-weight: 800; letter-spacing: .02em; padding: 0 3px; margin-right: 3px; border-radius: 3px; background: var(--mc); color: #0b1220; vertical-align: 1px; }
+  /* pumping: blue · Day 0: grey with a dotted border, the bar's extension · repair: orange · service: yellow · task: white — each with
+     the text of the highest contrast on it */
+  .bar.d0 { background: #2c2c2e; color: #fff; box-shadow: inset 0 0 0 1px transparent; outline: 1px dotted #aeaeb2; outline-offset: -1px; }
+  .bar.repair { background: #ff9f0a; color: #000; }
+  .bar.service { background: #ffd60a; color: #000; }
+  .bar.task { background: #fff; color: #000; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .moreb { font-size: 10px; line-height: 12px; color: var(--body); padding-left: 3px; }
   .jobrow { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; width: 100%; text-align: left; border: 1px solid var(--edge); }
   .jobrow .code { --mc: #94a3b8; font-size: 17px; min-width: 46px; text-align: center; padding: 4px 6px; border-radius: 10px; background: color-mix(in srgb, var(--mc) 24%, transparent); color: color-mix(in srgb, var(--mc) 45%, #fff); }
@@ -271,7 +281,7 @@
     <button data-f="all" aria-pressed="false">All</button>
   </div>
   <div class="picks" id="facets" hidden style="margin-top:10px"></div>
-  <div class="calnav" id="calnav" hidden><button class="arrow" id="cal-prev" aria-label="The month before">‹</button><button class="month" id="cal-month"></button><button class="arrow" id="cal-next" aria-label="The month after">›</button><button class="ask" id="cal-today">Today</button></div>
+  <div class="calnav" id="calnav" hidden><button class="month" id="cal-month"></button><div class="glass"><button class="arrow" id="cal-prev" aria-label="The month before">‹</button><button id="cal-today">Today</button><button class="arrow" id="cal-next" aria-label="The month after">›</button></div></div>
 </div></header>
 <div id="scroll"><main id="main"></main></div>
 <button class="fab glass" id="fab" hidden>+ Say a cost</button>
@@ -748,15 +758,15 @@ function weekBars(week) {
   }
   return { groups, lanes: ends.length }
 }
-const LOOK_TAG = { d0: 'D0', repair: 'REP', service: 'SVC', task: 'TASK' }
 function weekHtml(week) {
   const { groups, lanes } = weekBars(week), rows = Math.max(lanes, 3)
-  const cells = week.map((iso, c) => { const n = entriesOf(iso).length; return `<button class="cell ${iso.slice(0, 7) !== calMonth ? 'out' : ''} ${iso === cal.today ? 'today' : ''}" style="grid-column:${c + 1};grid-row:1 / -1" data-cell="${iso}" aria-pressed="${iso === calSel}" aria-label="${longDay(iso)}, ${n} job${n === 1 ? '' : 's'}"><span class="num">${Number(iso.slice(8))}</span></button>` }).join('')
+  const cells = week.map((iso, c) => { const n = entriesOf(iso).length, dow = atNoon(iso).getUTCDay(), first = iso.slice(8) === '01'; return `<button class="cell ${iso.slice(0, 7) !== calMonth ? 'out' : ''} ${dow === 0 || dow === 6 ? 'wkend' : ''} ${iso === cal.today ? 'today' : ''}" style="grid-column:${c + 1};grid-row:1 / -1" data-cell="${iso}" aria-pressed="${iso === calSel}" aria-label="${longDay(iso)}, ${n} job${n === 1 ? '' : 's'}">${first ? `<span class="mo">${atNoon(iso).toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })}</span>` : ''}<span class="num">${Number(iso.slice(8))}</span></button>` }).join('')
   const bars = groups.map(g => g.segs.map((s, i) => {
     const e = s.e, first = i === 0, last = i === g.segs.length - 1
-    return `<span class="bar ${s.look === 'job' ? '' : s.look} ${e.machine ? '' : 'none'} ${e.plan ? '' : 'card'} ${first && !g.before ? '' : 'joinl'} ${last && !g.after ? '' : 'joinr'} ${week[s.col].slice(0, 7) !== calMonth ? 'out' : ''}" style="--mc:${MC[e.machine] || '#94a3b8'};grid-column:${s.col + 1} / span ${s.span};grid-row:${g.lane + 2}">${LOOK_TAG[s.look] ? `<b class="tag">${LOOK_TAG[s.look]}</b>` : ''}(${esc(e.machine || ' ')}) ${esc(e.site || '?')}</span>`
+    const kindWords = { d0: 'Day 0', repair: 'repair', service: 'service', task: 'task' }[s.look]
+    return `<span class="bar ${s.look === 'job' ? '' : s.look} ${first && !g.before ? '' : 'joinl'} ${last && !g.after ? '' : 'joinr'} ${week[s.col].slice(0, 7) !== calMonth ? 'out' : ''}" style="grid-column:${s.col + 1} / span ${s.span};grid-row:${g.lane + 2}">(${esc(e.machine || ' ')}) ${esc(e.site || '?')}${kindWords ? `<span class="sr-only"> — ${kindWords}</span>` : ''}</span>`
   }).join('')).join('')
-  return `<div class="week" style="grid-template-rows:30px repeat(${rows}, 14px) minmax(4px, 1fr)">${cells}${bars}</div>`
+  return `<div class="week" style="grid-template-rows:42px repeat(${rows}, 13px) minmax(4px, 1fr)">${cells}${bars}</div>`
 }
 function entriesOf(iso) {
   const out = []
@@ -779,7 +789,7 @@ function renderJobs() {
   const todays = entriesOf(cal.today), fill = jobsToFill(), unassigned = liveJobs().filter(j => !j.machine_code && j.days.some(d => d.day_date >= cal.today)).length
   $('brief').innerHTML = `<b>${todays.length} machine-day${todays.length === 1 ? '' : 's'} today.</b>${fill ? ` <b>${fill}</b> shell${fill === 1 ? ' has' : 's have'} gaps to fill.` : ' Every shell for today and tomorrow is filled.'}${unassigned ? ` ${unassigned} planned with no machine yet.` : ''}`
   const first = atNoon(calMonth + '-01')
-  $('cal-month').textContent = first.toLocaleDateString('en-GB', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+  $('cal-month').textContent = first.toLocaleDateString('en-GB', { month: 'long', timeZone: 'UTC' }) + (calMonth.slice(0, 4) !== cal.today.slice(0, 4) ? ' ' + calMonth.slice(0, 4) : '')
   const lead = (first.getUTCDay() - weekStart + 7) % 7, days = []
   for (let i = 0; i < 42; i++) days.push(isoDay(new Date(first.getTime() + (i - lead) * 86400e3)))
   const shown = days[35].slice(0, 7) === calMonth ? days : days.slice(0, 35)
@@ -1020,7 +1030,11 @@ function startDefault(j, d) {
     const [, mo, dd] = String(first).split('-')
     for (const c of craneLinesOf(j).filter(x => x.real)) {
       const m = /^Truck \([^)]*\) \((\d{1,2})\/([A-Za-z]{3})\):.*?\(from\s+(.*?)(?:\s+to\s+(.*?))?(?:\s*\[[^\]]*\])?\s*\)\s*$/.exec(String(c.crane_line || ''))
-      if (m && Number(m[1]) === Number(dd) && START_MON.indexOf(m[2].toLowerCase()) === Number(mo) - 1 && m[3] && m[3].trim() !== here) return [`${m[3].trim()} > ${here}`, `a truck line is dated this same day: the machine came from ${m[3].trim()} before the job started`]
+      if (!(m && Number(m[1]) === Number(dd) && START_MON.indexOf(m[2].toLowerCase()) === Number(mo) - 1 && m[3] && m[3].trim() !== here)) continue
+      // a Day 0 shows the move through its START and END lines: START where the machine came from, END the job's place (the owner,
+      // 6 Oct 2026: "not for day 0s, only for pumping days, day 0s show the movement through the start AND end lines")
+      if (d.kind === 'setting') return [m[3].trim(), `a Day 0: the machine came from ${m[3].trim()} (its END is the job's place)`]
+      return [`${m[3].trim()} > ${here}`, `a truck line is dated this same day: the machine came from ${m[3].trim()} before the job started`]
     }
   }
   return [here, 'the card’s location']
