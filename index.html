@@ -946,7 +946,7 @@ function suggestions(scope, f, o, j) {
     // 20,000; Girnni and Citrine Heights under 40 m³ 15,000; Getec always 30,000; "use mob charged previously at a site as a guide/suggestion")
     if (f === 'pumping_fee_ksh') out.push(/devki/i.test(`${j.client || ''} ${j.site_name || ''}`) ? ['630', 'Devki — 630 (R148)'] : ['650', 'every job — 650 (R148)'])
     if (f === 'mobilisation_fee_ksh') {
-      // R148 as refined 9 Oct 2026: a small job (under 50 m³ — Girnni and Citrine Heights under 40) is 20,000, Getec 30,000, Girnni and
+      // R150 (9 Oct 2026): a small job (under 50 m³ — Girnni and Citrine Heights under 40) is 20,000, Getec 30,000, Girnni and
       // Citrine Heights 15,000; distance on any job: the truck's quote over the 14,000 every job carries, both ways — (quote − 14,000) × 2
       const nm = String(j.site_name || ''), m3 = Number((j.days || []).find(d => d.expected_m3 != null)?.expected_m3 ?? NaN)
       const trip = Number(j.crane_price_ksh ?? (Array.isArray(j.crane_lines) ? j.crane_lines[0]?.price_ksh : null) ?? NaN)
@@ -955,10 +955,10 @@ function suggestions(scope, f, o, j) {
       const dist = Number.isFinite(trip) && trip > 14000 ? (trip - 14000) * 2 : 0
       const small = /girn|citrine/i.test(nm) ? 40 : 50, base = /getec/i.test(nm) ? 30000 : /girn|citrine/i.test(nm) ? 15000 : 20000
       const isSmall = !(Number.isFinite(m3) && m3 >= small)
-      if (dist && isSmall) out.push([String(dist + base), `small and far — ${base.toLocaleString('en-US')} + ${dist.toLocaleString('en-US')} distance (R148: both apply)`])
-      if (dist) out.push([String(dist), `distance — ${trip.toLocaleString('en-US')} is ${(trip - 14000).toLocaleString('en-US')} over the 14,000, there and back (R148; use the regular suppliers' quote if a cheaper truck went)`])
-      if (isSmall) out.push([String(base), `under ${small} m³ — ${base.toLocaleString('en-US')}${/getec/i.test(nm) ? ' at Getec' : ''} (R148)${Number.isFinite(m3) ? ` · expected ${m3} m³` : ''}`])
-      else if (!dist) out.push(['0', `expected ${m3} m³ — not a small job, no distance (R148)`])
+      if (dist && isSmall) out.push([String(dist + base), `small and far — ${base.toLocaleString('en-US')} + ${dist.toLocaleString('en-US')} distance (R150: both apply)`])
+      if (dist) out.push([String(dist), `distance — ${trip.toLocaleString('en-US')} is ${(trip - 14000).toLocaleString('en-US')} over the 14,000, there and back (R150; use the regular suppliers' quote if a cheaper truck went)`])
+      if (isSmall) out.push([String(base), `under ${small} m³ — ${base.toLocaleString('en-US')}${/getec/i.test(nm) ? ' at Getec' : ''} (R150)${Number.isFinite(m3) ? ` · expected ${m3} m³` : ''}`])
+      else if (!dist) out.push(['0', `expected ${m3} m³ — not a small job, no distance (R150)`])
       if (p.site_mob != null && Number(p.site_mob) > 0) out.push([String(p.site_mob), `last charged at ${j.site_name} (#${p.site_fee_card})`])
     }
     if (f === 'crane_price_ksh' && p.last_crane_price != null) out.push([String(p.last_crane_price), `the last priced trip to ${j.site_name}`])
