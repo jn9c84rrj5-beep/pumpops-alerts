@@ -950,10 +950,15 @@ function suggestions(scope, f, o, j) {
       // Citrine Heights 15,000; distance on any job: the truck's quote over the 14,000 every job carries, both ways — (quote − 14,000) × 2
       const nm = String(j.site_name || ''), m3 = Number((j.days || []).find(d => d.expected_m3 != null)?.expected_m3 ?? NaN)
       const trip = Number(j.crane_price_ksh ?? (Array.isArray(j.crane_lines) ? j.crane_lines[0]?.price_ksh : null) ?? NaN)
-      if (Number.isFinite(trip) && trip > 14000) out.push([String((trip - 14000) * 2), `distance — the truck's ${trip.toLocaleString('en-US')} is ${(trip - 14000).toLocaleString('en-US')} over the 14,000, there and back (R148)`])
+      // the two ADD UP (9 Oct 2026: "if a job is both then both are applied"); the distance part is from the REGULAR suppliers' quote, not a
+      // discounted truck that went ("the delta is after the fact") — the truck price on the plan is only a stand-in for it
+      const dist = Number.isFinite(trip) && trip > 14000 ? (trip - 14000) * 2 : 0
       const small = /girn|citrine/i.test(nm) ? 40 : 50, base = /getec/i.test(nm) ? 30000 : /girn|citrine/i.test(nm) ? 15000 : 20000
-      if (Number.isFinite(m3) && m3 >= small) out.push(['0', `expected ${m3} m³ — not a small job (R148: under ${small} m³)`])
-      else out.push([String(base), `under ${small} m³ — ${base.toLocaleString('en-US')}${/getec/i.test(nm) ? ' at Getec' : ''} (R148)${Number.isFinite(m3) ? ` · expected ${m3} m³` : ''}`])
+      const isSmall = !(Number.isFinite(m3) && m3 >= small)
+      if (dist && isSmall) out.push([String(dist + base), `small and far — ${base.toLocaleString('en-US')} + ${dist.toLocaleString('en-US')} distance (R148: both apply)`])
+      if (dist) out.push([String(dist), `distance — ${trip.toLocaleString('en-US')} is ${(trip - 14000).toLocaleString('en-US')} over the 14,000, there and back (R148; use the regular suppliers' quote if a cheaper truck went)`])
+      if (isSmall) out.push([String(base), `under ${small} m³ — ${base.toLocaleString('en-US')}${/getec/i.test(nm) ? ' at Getec' : ''} (R148)${Number.isFinite(m3) ? ` · expected ${m3} m³` : ''}`])
+      else if (!dist) out.push(['0', `expected ${m3} m³ — not a small job, no distance (R148)`])
       if (p.site_mob != null && Number(p.site_mob) > 0) out.push([String(p.site_mob), `last charged at ${j.site_name} (#${p.site_fee_card})`])
     }
     if (f === 'crane_price_ksh' && p.last_crane_price != null) out.push([String(p.last_crane_price), `the last priced trip to ${j.site_name}`])
