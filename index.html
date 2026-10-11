@@ -363,7 +363,9 @@ const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add
 const key = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)) }
 const api = async (task, opts = {}) => {
   if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : task.startsWith('calendar') ? window.FIXTURE_CAL : task === 'lists' ? window.FIXTURE_LISTS : task.startsWith('proposals') ? (window.FIXTURE_PROPOSALS || {}) : task.startsWith('crew') ? (window.FIXTURE_CREW || { names: [] }) : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
-  const r = await fetch(`${FN}?task=${task}`, { method: opts.body ? 'POST' : 'GET', headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(store.token ? { 'x-device-token': store.token } : {}) }, body: opts.body ? JSON.stringify(opts.body) : undefined })
+  // the bot runs beside its database (us-east-1), not in the region nearest the phone (ap-south-1): every one of its database calls
+  // crossed the world — 10 Oct 2026, "also its really slow": the feed 3.6 s → 1.4 s, the calendar 2.1 s → 0.9 s, the lists 2.2 s → 1.0 s
+  const r = await fetch(`${FN}?task=${task}&forceFunctionRegion=us-east-1`, { method: opts.body ? 'POST' : 'GET', headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(store.token ? { 'x-device-token': store.token } : {}) }, body: opts.body ? JSON.stringify(opts.body) : undefined })
   return { status: r.status, data: await r.json().catch(() => ({})) }
 }
 
