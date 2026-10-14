@@ -282,6 +282,24 @@
   .toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(150px + env(safe-area-inset-bottom)); z-index: var(--z-toast); border-radius: 14px; padding: 10px 14px; font-size: 14px; color: var(--ink); opacity: 0; pointer-events: none; transition: opacity .2s ease-out; max-width: min(92vw, 460px); white-space: pre-wrap; }
   .toast.on { opacity: 1; }
   .empty { text-align: center; color: var(--body); padding: 36px 12px; }
+  /* ASK — THE ASSISTANT (W63, 15 Oct 2026): a text box, a hold-to-talk mic, the answers with the numbers behind them */
+  .askbox { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+  .askbox textarea { min-height: 52px; height: 52px; resize: none; }
+  .mic { width: 100%; min-height: 64px; margin-top: 10px; border-radius: 18px; border: 1px solid var(--edge); background: var(--glass-strong); color: var(--ink); font-size: 16px; font-weight: 600;
+    display: flex; align-items: center; justify-content: center; gap: 10px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+  .mic svg { width: 22px; height: 22px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .mic.on { background: rgba(239, 68, 68, .22); border-color: rgba(248, 113, 113, .7); color: #fecaca; }
+  .mac { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--body); margin: 2px 2px 10px; }
+  .mac .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--primary); flex: none; }
+  .mac.asleep .dot { background: var(--warn); }
+  .qa-card .heard { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; }
+  .qa-card .ans { color: var(--strong); margin-top: 6px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .qa-card .ans.wait { color: var(--body); font-style: italic; }
+  .facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-top: 8px; font-size: 12.5px; }
+  .facts dt { color: var(--body); }
+  .facts dd { margin: 0; color: var(--strong); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .rowsx { margin-top: 8px; font-size: 12.5px; color: var(--strong); display: grid; gap: 2px; }
+  .rowsx span { color: var(--body); }
   @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 </style>
 </head>
@@ -375,7 +393,7 @@ const kes = n => Number(n || 0).toLocaleString('en-US')
 const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 5000) }
 const key = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)) }
 const api = async (task, opts = {}) => {
-  if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : task.startsWith('calendar') ? window.FIXTURE_CAL : task === 'lists' ? window.FIXTURE_LISTS : task.startsWith('proposals') ? (window.FIXTURE_PROPOSALS || {}) : task.startsWith('crew') ? (window.FIXTURE_CREW || { names: [] }) : task.startsWith('truckday') ? (window.FIXTURE_TRUCK || {}) : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
+  if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : task.startsWith('calendar') ? window.FIXTURE_CAL : task === 'lists' ? window.FIXTURE_LISTS : task.startsWith('proposals') ? (window.FIXTURE_PROPOSALS || {}) : task.startsWith('crew') ? (window.FIXTURE_CREW || { names: [] }) : task.startsWith('truckday') ? (window.FIXTURE_TRUCK || {}) : task.startsWith('assistant') ? (window.FIXTURE_ASK || { questions: [], mac: { awake: false, ears: false, waiting: 0 } }) : opts.body && opts.body.action === 'assistant_ask' ? { id: null, mac: (window.FIXTURE_ASK || {}).mac || { awake: false } } : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
   // the bot runs beside its database (us-east-1), not in the region nearest the phone (ap-south-1): every one of its database calls
   // crossed the world — 10 Oct 2026, "also its really slow": the feed 3.6 s → 1.4 s, the calendar 2.1 s → 0.9 s, the lists 2.2 s → 1.0 s
   const r = await fetch(`${FN}?task=${task}&forceFunctionRegion=us-east-1`, { method: opts.body ? 'POST' : 'GET', headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(store.token ? { 'x-device-token': store.token } : {}) }, body: opts.body ? JSON.stringify(opts.body) : undefined })
@@ -418,11 +436,11 @@ async function waitApproval(sub) {
 async function load() {
   const { status, data } = await api('feed').catch(() => ({ status: 0, data: {} }))
   if (status === 403) { store.token = null; return start() }
-  if (data.rows) { feed = data; derive(); if (dept === 'jobs' && !$('job').open) loadCal(); else render() }
+  if (data.rows) { feed = data; derive(); if (dept === 'jobs' && !$('job').open) loadCal(); else if (dept === 'ask') navBar(); else render() }
 }
 function show() {
   for (const id of ['bar', 'fab', 'nav']) $(id).hidden = false
-  load().then(() => { const m = new URLSearchParams(location.search).get('m'); if (m) focusMsg(m); loadCal() })   // the calendar too: the Jobs tab's count of shells with gaps
+  load().then(() => { const m = new URLSearchParams(location.search).get('m'); if (m) focusMsg(m); loadCal(); loadAsk() })   // the calendar too: the Jobs tab's count of shells with gaps
   // every 30 s; while a question to a manager is open, every 15 s so its answer shows as soon as it is written
   let tick = 0
   clearInterval(timer); timer = setInterval(() => {
@@ -764,8 +782,12 @@ function truckHtml() {
     ${(t.said || []).length ? `<div class="tsub"><span>Also said in the group</span><span>${t.said.length}</span></div>${t.said.map(x => `<p class="why">${esc(x.at)} · ${esc(x.text)}</p>`).join('')}` : ''}
   </section>`
 }
-const navBar = () => { $('nav').innerHTML = Object.entries(DEPTS).map(([k, d]) => { const n = k === 'jobs' ? jobsToFill() : mine(k, false).filter(t => t.needs && !t.solved && !t.asked).length; return `<button class="tab" data-d="${k}" ${k === dept ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span>${d.tab}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>` }).join('') }
+const navBar = () => { $('nav').innerHTML = Object.entries(DEPTS).map(([k, d]) => { const n = k === 'jobs' ? jobsToFill() : mine(k, false).filter(t => t.needs && !t.solved && !t.asked).length; return `<button class="tab" data-d="${k}" ${k === dept ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span>${d.tab}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>` }).join('')
+  // ASK — the assistant (W63): its own view, not a department; the badge = his questions still waiting for the Mac
+  + `<button class="tab" data-d="ask" ${dept === 'ask' ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${ASK_ICON}</svg><span>Assistant</span>${askWaiting() ? `<span class="badge">${askWaiting()}</span>` : ''}</button>` }
 function render() {
+  if (dept === 'ask') return renderAsk()
+  $('fab').hidden = false
   const jobsTab = dept === 'jobs'
   document.querySelector('.seg').hidden = jobsTab; $('calnav').hidden = !jobsTab; $('ask').hidden = jobsTab; $('filt').hidden = jobsTab; if (jobsTab) $('facets').hidden = true
   $('fab').textContent = jobsTab ? '+ Plan a job' : '+ Say a cost'
@@ -1292,6 +1314,137 @@ $('job').addEventListener('close', () => { shellJob = null; plan = null; editing
 
 function focusMsg(id) { dept = 'all'; filters.all = 'all'; render(); const el = document.querySelector(`[id^="m${id}-"]`); if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 2500) } }
 
+// ══ ASK — THE ASSISTANT IN THE BOT APP (W63; the owner, 15 Oct 2026: "i need an iphone version too, like the bot app, or even better, in
+// the bot app itself") ═════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// A text box and a hold-to-talk mic. The question goes to the bot (task=reply, assistant_ask), which only QUEUES it: the assistant runs
+// on the Mac alone (tools/assistant-worker.mjs, lib/assistant). This page asks again every 2.5 s until the Mac has answered; the answer is
+// shown with the numbers behind it and spoken with the iPhone's own voice (speechSynthesis, on the phone). If the Mac is asleep the
+// question waits, and is answered when it wakes. ⚠ The text and the recording pass through Supabase like every bot message, until the
+// database moves onto the Mac; the recording is deleted once the Mac has heard it. A prepared action (an award, a plan) is a button: his
+// tap goes through the bot's answer path, and Undo is there (W18). Nothing here writes on its own (R128).
+const ASK_ICON = '<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>'
+const asking = { list: [], mac: null, mine: new Set(), spoken: new Set(), timer: null, rec: null, chunks: [], t0: 0, mime: '', loaded: false, sending: false, voice: true }
+const askWaiting = () => asking.list.filter(q => q.status === 'queued' || q.status === 'working').length
+const ASK_TRY = ["What's A3 doing today?", "Who's still owed supper?", "What's waiting for me?", "Give A3's team 500 each for yesterday, they finished late", 'Benson apewe 500 ya jana']
+async function loadAsk() {
+  const { status, data } = await api('assistant').catch(() => ({ status: 0, data: {} }))
+  if (status === 403) { store.token = null; return start() }
+  if (data.questions) { asking.list = data.questions; asking.mac = data.mac || null; asking.loaded = true }
+  if (dept === 'ask') renderAsk(); else navBar()
+  pollAsk()
+}
+// one look at each question still waiting; again in 2.5 s while any waits
+function pollAsk() {
+  clearTimeout(asking.timer)
+  if (!asking.list.some(q => q.status === 'queued' || q.status === 'working') || window.FIXTURE) return
+  asking.timer = setTimeout(async () => {
+    for (const q of asking.list.filter(x => x.status === 'queued' || x.status === 'working')) {
+      const { data } = await api(`assistant&id=${q.id}`).catch(() => ({ data: {} }))
+      if (data.question) { Object.assign(q, data.question); asking.mac = data.mac || asking.mac }
+      if (q.status === 'answered' && asking.mine.has(q.id) && !asking.spoken.has(q.id)) { asking.spoken.add(q.id); speakIt(q.answer) }
+    }
+    if (dept === 'ask') renderAsk(); else navBar()
+    pollAsk()
+  }, 2500)
+}
+// the phone's own voice: a voice on the phone (localService) in English, the answer's spoken form
+function speakIt(a) {
+  if (!asking.voice || !a || !('speechSynthesis' in window)) return
+  const text = a.spoken || a.text; if (!text) return
+  try {
+    speechSynthesis.cancel()
+    const u = new SpeechSynthesisUtterance(text)
+    const vs = speechSynthesis.getVoices().filter(v => v.localService && /^en/i.test(v.lang))
+    u.voice = vs.find(v => /en-GB/i.test(v.lang)) || vs[0] || null; u.rate = 1
+    speechSynthesis.speak(u)
+  } catch {}
+}
+// iOS speaks only after a tap has started speech once: the send tap does that, with nothing said
+const unlockVoice = () => { try { if ('speechSynthesis' in window && !asking.unlocked) { speechSynthesis.speak(new SpeechSynthesisUtterance(' ')); asking.unlocked = true } } catch {} }
+async function askSend(body) {
+  if (asking.sending) return
+  asking.sending = true; unlockVoice()
+  try {
+    const { status, data } = await api('reply', { body: { action: 'assistant_ask', ...body } })
+    if (status !== 200) { toast(data.error || 'Not asked — try again.'); return false }
+    if (data.id) { asking.mine.add(data.id); asking.list.unshift({ id: data.id, created_at: new Date().toISOString(), text: body.text || null, audio_mime: body.mime || null, status: 'queued', answer: null }) }
+    if (data.mac) asking.mac = data.mac
+    renderAsk(); pollAsk(); return true
+  } catch { toast('No connection — try again.'); return false } finally { asking.sending = false }
+}
+const facts = f => { const xs = Object.entries(f || {}).filter(([k, v]) => v != null && v !== '' && typeof v !== 'object' && k !== 'words'); return xs.length ? `<dl class="facts">${xs.map(([k, v]) => `<dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${esc(typeof v === 'number' ? Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }) : v)}</dd>`).join('')}</dl>` : '' }
+const rowsOf = rs => Array.isArray(rs) && rs.length && typeof rs[0] === 'object' ? `<div class="rowsx">${rs.slice(0, 12).map(r => `<div>${Object.entries(r).filter(([, v]) => v != null && typeof v !== 'object').slice(0, 4).map(([k, v], i) => i ? `<span> · ${esc(v)}</span>` : esc(v)).join('')}</div>`).join('')}${rs.length > 12 ? `<span>… and ${rs.length - 12} more</span>` : ''}</div>` : ''
+function qaCard(q) {
+  const asked = q.heard || q.text || (q.audio_mime ? '🎤 Your voice' : '…')
+  const mac = asking.mac || {}
+  let body
+  if (q.status === 'queued') body = `<p class="ans wait">${mac.awake ? 'Waiting for the Mac…' : 'The Mac is asleep — your question waits, and is answered when it wakes.'}</p>`
+  else if (q.status === 'working') body = `<p class="ans wait">${q.audio_mime && !q.heard ? 'Listening…' : 'Thinking…'}</p>`
+  else if (q.status === 'failed') body = `<p class="ans">It could not answer: ${esc(q.error || 'no reason given')}</p>`
+  else {
+    const a = q.answer || {}, act = a.action
+    let acts = ''
+    if (act && act.kind === 'pay_award') {
+      acts = q.action_state === 'confirmed' ? `<div class="acts"><span class="chip done">✓ In their pay</span>${q.action_outbox_id ? `<button class="act quiet" data-askundo="${q.action_outbox_id}">Undo</button>` : ''}</div>`
+        : q.action_state === 'undone' ? `<div class="acts"><span class="chip">Undone — not in their pay</span></div>`
+        : `<div class="acts"><button class="act yes" data-askact="${q.id}">${esc(act.label || 'Confirm')}</button><span class="why">nothing is written until you tap</span></div>`
+    } else if (act && act.kind === 'plan_job') acts = `<div class="acts"><button class="act yes" data-askplan="${esc((act.draft && act.draft.day) || '')}">${esc(act.label || 'Plan')}</button></div>`
+    body = `<p class="ans">${esc(a.text || '')}</p>${facts(a.facts)}${rowsOf(a.rows)}${acts}${a.text ? `<div class="acts"><button class="act quiet" data-asksay="${q.id}">🔊 Say it</button></div>` : ''}`
+  }
+  return `<section class="item qa-card"><div class="meta"><span>${hm(q.created_at || Date.now())}</span>${q.via === 'live' ? '<span>· from the website</span>' : ''}</div><div class="heard">${esc(asked)}</div>${body}</section>`
+}
+function renderAsk() {
+  document.querySelector('.seg').hidden = true; $('calnav').hidden = true; $('ask').hidden = true; $('filt').hidden = true; $('facets').hidden = true; $('fab').hidden = true
+  $('title').textContent = 'Assistant'
+  $('date').textContent = new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + hm(Date.now())
+  const mac = asking.mac || {}
+  $('brief').innerHTML = asking.loaded ? `<span class="mac ${mac.awake ? '' : 'asleep'}"><span class="dot" aria-hidden="true"></span>${mac.awake ? `The Mac is awake — it answers in a few seconds.${mac.ears ? '' : ' The ears are still downloading: type for now.'}` : 'The Mac is asleep — a question waits, and is answered when it wakes.'}</span>` : 'Looking for the Mac…'
+  // the box and the mic are built ONCE: a refresh never takes what he is typing, nor the button he is holding
+  if (!$('askq')) {
+    main.innerHTML = `<section class="item">
+      <div class="askbox"><textarea id="askq" rows="1" autocomplete="off" enterkeyhint="send" placeholder="Ask, or give an award" aria-label="Your question"></textarea><button class="act yes" id="asksend">Send</button></div>
+      <button class="mic" id="askmic" aria-label="Hold to talk"><svg viewBox="0 0 24 24" aria-hidden="true">${ASK_ICON}</svg><span id="askmic-l">Hold to talk</span></button>
+      <div class="picks" style="margin-top:10px">${ASK_TRY.map(t => `<button class="pick" data-asktry="${esc(t)}">${esc(t)}</button>`).join('')}</div>
+    </section><div id="asklist" style="display:grid;gap:10px;margin-top:10px"></div>`
+    const box = $('askq')
+    box.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('asksend').click() } }
+    $('asksend').onclick = async () => { const t = box.value.trim(); if (!t) return; box.value = ''; if (!(await askSend({ text: t }))) box.value = t }
+    const mic = $('askmic')
+    mic.onpointerdown = e => { e.preventDefault(); try { mic.setPointerCapture(e.pointerId) } catch {} micStart() }
+    mic.onpointerup = mic.onpointercancel = e => { if (asking.rec) { e.preventDefault(); micStop() } }
+    mic.oncontextmenu = e => e.preventDefault()
+  }
+  $('askmic').classList.toggle('on', !!asking.rec); $('askmic-l').textContent = asking.rec ? 'Recording — let go to send' : 'Hold to talk'
+  $('askmic').setAttribute('aria-label', asking.rec ? 'Recording — let go to send' : 'Hold to talk')
+  $('asklist').innerHTML = asking.list.length ? asking.list.map(qaCard).join('') : `<p class="empty">${asking.loaded ? 'Nothing asked yet today.' : 'Loading…'}</p>`
+  navBar()
+}
+// hold to talk: MediaRecorder — iOS Safari records audio/mp4 (AAC); Chrome on the Mac webm
+async function micStart() {
+  if (asking.rec) return
+  unlockVoice()
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) { toast('This phone cannot record here — type the question.'); return }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    const mime = ['audio/mp4', 'audio/webm;codecs=opus', 'audio/webm'].find(m => MediaRecorder.isTypeSupported?.(m)) || ''
+    const rec = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined)
+    asking.chunks = []; asking.t0 = Date.now(); asking.mime = rec.mimeType || mime || 'audio/mp4'
+    rec.ondataavailable = ev => { if (ev.data && ev.data.size) asking.chunks.push(ev.data) }
+    rec.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop())
+      const secs = (Date.now() - asking.t0) / 1000
+      asking.rec = null; renderAsk()
+      if (secs < 0.6) { toast('Hold the button while you speak.'); return }
+      if (secs > 60) { toast('Keep it under a minute.'); return }
+      const blob = new Blob(asking.chunks, { type: asking.mime })
+      const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.readAsDataURL(blob) })
+      await askSend({ audio_b64: b64, mime: asking.mime, seconds: Math.round(secs * 10) / 10 })
+    }
+    asking.rec = rec; rec.start(); renderAsk()
+  } catch (err) { asking.rec = null; toast('The microphone was not allowed: ' + (err.message || err)); renderAsk() }
+}
+function micStop() { try { asking.rec && asking.rec.state !== 'inactive' && asking.rec.stop() } catch { asking.rec = null; renderAsk() } }
+
 // ── answering ──
 async function say(body, quiet) {
   busy = true
@@ -1303,7 +1456,13 @@ async function say(body, quiet) {
 }
 document.addEventListener('click', async e => {
   const b = e.target.closest('button'), art = e.target.closest('.item.solved')
-  if (b?.dataset.d) { dept = b.dataset.d; scroller.scrollTop = 0; render(); if (dept === 'jobs') loadCal(); return }
+  if (b?.dataset.d) { dept = b.dataset.d; scroller.scrollTop = 0; render(); if (dept === 'jobs') loadCal(); if (dept === 'ask') loadAsk(); return }
+  if (b?.dataset.asktry) { const box = $('askq'); if (box) { box.value = b.dataset.asktry; box.focus() } return }
+  if (b?.dataset.asksay) { unlockVoice(); const q = asking.list.find(x => String(x.id) === b.dataset.asksay); if (q) speakIt(q.answer); return }
+  // his tap on a prepared award: the bot files it through app_pay_adjustment_write; Undo = Reopen on the Solved row it makes (W18)
+  if (b?.dataset.askact) { b.disabled = true; const q = asking.list.find(x => String(x.id) === b.dataset.askact); const ok = await say({ action: 'pay_award', question: Number(b.dataset.askact) }); if (ok && q) { q.action_state = 'confirmed'; loadAsk() } else b.disabled = false; return }
+  if (b?.dataset.askundo) { b.disabled = true; const ok = await say({ action: 'reopen', id: Number(b.dataset.askundo), item: 0 }); if (ok) loadAsk(); else b.disabled = false; return }
+  if (b && 'askplan' in b.dataset) { dept = 'jobs'; render(); loadCal().then(() => openPlan(b.dataset.askplan || (cal && cal.today))); return }
   if (b && 'truckday' in b.dataset) { if (!truck.loading) loadTruck(b.dataset.truckday || null); return }
   if (b?.dataset.cell) { calSel = b.dataset.cell; if (calSel.slice(0, 7) !== calMonth) { calMonth = calSel.slice(0, 7); return loadCal() } return renderJobs() }
   if (b?.dataset.ongoingjoin) { b.disabled = true; shellJob = Number(b.dataset.ongoingjoin); const out = await jobSay({ action: 'job_set', job: shellJob, field: 'job_number', value: b.dataset.card }); shellJob = null; if (!out) { b.disabled = false; return } toast(`✓ Joined to #${b.dataset.card}.`); return openShell(Number(b.dataset.ongoingjoin)) }
