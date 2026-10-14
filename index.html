@@ -198,6 +198,19 @@
   .photos { display: flex; gap: 8px; overflow-x: auto; margin-top: 8px; }
   .photos img.gauge { height: 180px; width: auto; max-width: 70%; border-radius: 10px; border: 1px solid var(--edge); background: var(--track); }
   .photos img.gauge:not([src]) { width: 120px; }
+
+  /* the truck day (TRK-group proposal Step 2): one short page a day for the company truck, under Machines */
+  .tnav { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .tnav .act[disabled] { visibility: hidden; }
+  .tsub { margin: 12px 0 4px; font-size: 12.5px; font-weight: 600; color: var(--body); display: flex; justify-content: space-between; gap: 10px; }
+  .tlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  .tlist li { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: baseline; color: var(--strong); font-size: 14px; }
+  .tlist .code { font-size: 15px; min-width: 0; }
+  .tlist small { display: block; color: var(--body); font-size: 12.5px; }
+  .tlist .lone { grid-template-columns: 1fr; }
+  .tphotos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 8px; }
+  .tphoto { min-width: 0; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--edge); background: var(--track); font-size: 12.5px; color: var(--body); }
+  .tphoto b { color: var(--strong); font-weight: 600; font-variant-numeric: tabular-nums; }
   textarea { min-height: 110px; resize: vertical; }
   input::placeholder, textarea::placeholder { color: var(--body); opacity: .8; }
   .preview { margin-top: 14px; padding: 10px 12px; border-radius: 12px; border: 1px dashed var(--edge); color: var(--ink); min-height: 44px; font-size: 15px; overflow-wrap: anywhere; }
@@ -362,7 +375,7 @@ const kes = n => Number(n || 0).toLocaleString('en-US')
 const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 5000) }
 const key = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)) }
 const api = async (task, opts = {}) => {
-  if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : task.startsWith('calendar') ? window.FIXTURE_CAL : task === 'lists' ? window.FIXTURE_LISTS : task.startsWith('proposals') ? (window.FIXTURE_PROPOSALS || {}) : task.startsWith('crew') ? (window.FIXTURE_CREW || { names: [] }) : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
+  if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : task.startsWith('calendar') ? window.FIXTURE_CAL : task === 'lists' ? window.FIXTURE_LISTS : task.startsWith('proposals') ? (window.FIXTURE_PROPOSALS || {}) : task.startsWith('crew') ? (window.FIXTURE_CREW || { names: [] }) : task.startsWith('truckday') ? (window.FIXTURE_TRUCK || {}) : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
   // the bot runs beside its database (us-east-1), not in the region nearest the phone (ap-south-1): every one of its database calls
   // crossed the world — 10 Oct 2026, "also its really slow": the feed 3.6 s → 1.4 s, the calendar 2.1 s → 0.9 s, the lists 2.2 s → 1.0 s
   const r = await fetch(`${FN}?task=${task}&forceFunctionRegion=us-east-1`, { method: opts.body ? 'POST' : 'GET', headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(store.token ? { 'x-device-token': store.token } : {}) }, body: opts.body ? JSON.stringify(opts.body) : undefined })
@@ -695,10 +708,10 @@ function engineHtml(es) {
 function boardsBelow(f) {
   const b = feed.board || {}
   if (dept === 'money' && showsBoards(f)) return owedHtml()   // after what needs him: the payments first, then who is owed
-  if (dept === 'machines' && showsBoards(f) && (b.machines || []).length) return (`<div class="group"><span>Today's machines</span><span>${b.machines.length}</span></div>` + b.machines.map(m => {
+  if (dept === 'machines' && showsBoards(f)) return (!(b.machines || []).length ? '' : `<div class="group"><span>Today's machines</span><span>${b.machines.length}</span></div>` + b.machines.map(m => {
     const eng = m.engine && m.engine.end != null ? Math.round((m.engine.end - m.engine.start) * 10) / 10 : null, q = m.quiet_min
     return `<section class="item"><div class="mach"><div class="code">${esc(m.code)}</div><div><div class="who">${esc(m.who || '')}</div><div class="where">${esc([m.area, m.site].filter(Boolean).join(' · '))}</div></div><div class="vol">${m.m3} m³<small>${m.trucks} truck${m.trucks === 1 ? '' : 's'}</small></div>
-      <div class="steps"><span class="chip ${m.sr ? 'done' : ''}">${m.sr ? '✓' : '–'} Start</span><span class="chip ${m.er ? 'done' : ''}">${m.er ? '✓' : '–'} End</span><span class="chip">last ${m.last}</span>${q ? `<span class="chip need"><span class="dot"></span>quiet ${Math.floor(q / 60)} h ${q % 60} min</span>` : ''}${eng != null ? `<span class="chip">engine ${eng} h${m.span ? ` · pumping ${m.span.hours} h` : ''}</span>` : m.span ? `<span class="chip">pumping ${m.span.hours} h</span>` : ''}${m.issues ? `<span class="chip need"><span class="dot"></span>${m.issues} issue${m.issues > 1 ? 's' : ''}</span>` : ''}</div></div></section>` }).join(''))
+      <div class="steps"><span class="chip ${m.sr ? 'done' : ''}">${m.sr ? '✓' : '–'} Start</span><span class="chip ${m.er ? 'done' : ''}">${m.er ? '✓' : '–'} End</span><span class="chip">last ${m.last}</span>${q ? `<span class="chip need"><span class="dot"></span>quiet ${Math.floor(q / 60)} h ${q % 60} min</span>` : ''}${eng != null ? `<span class="chip">engine ${eng} h${m.span ? ` · pumping ${m.span.hours} h` : ''}</span>` : m.span ? `<span class="chip">pumping ${m.span.hours} h</span>` : ''}${m.issues ? `<span class="chip need"><span class="dot"></span>${m.issues} issue${m.issues > 1 ? 's' : ''}</span>` : ''}</div></div></section>` }).join('')) + truckHtml()
   if (dept === 'fuel' && showsBoards(f) && (b.fuel || []).length) return `<div class="group"><span>Levels today</span><span>red line 0 · blue line 100</span></div>` + b.fuel.map(x => {
     const clamp = v => Math.max(0, Math.min(100, v)), last = x.marks[x.marks.length - 1], first = x.marks[0]
     const used = x.marks.reduce((a, m, i) => i && m.pct < x.marks[i - 1].pct ? a + (x.marks[i - 1].pct - m.pct) : a, 0)
@@ -706,6 +719,50 @@ function boardsBelow(f) {
       <div class="gauge"><div class="fill" style="width:${clamp(last.pct)}%"></div>${x.marks.map(m => `<span class="tick" style="left:calc(${clamp(m.pct)}% - 1px)"></span>`).join('')}<span class="lab" style="left:${Math.max(6, Math.min(94, last.pct))}%">${last.hm}</span></div>
       <div class="facts"><span>first <b>${first.pct}% · ${first.hm}</b></span><span>photos <b>${x.marks.length}</b></span><span>refuels <b>${x.refuels}${x.rise ? ` · +${x.rise} pts` : ''}</b></span><span>went down <b>${used} pts${x.litres_per_gauge ? ` ≈ ${Math.round(used * x.litres_per_gauge / 100)} L` : ''}</b></span></div></section>` }).join('')
   return ''
+}
+// ══ THE TRUCK DAY (TRK-group proposal Step 2; R132, R156) ══════════════════════════════════════════════════════════════════════════
+// The owner, 14 Oct 2026: "earlier you asked me if you could build a company truck page or something, you can do it too". The company
+// truck keeps no card: under Machines, one short page a day — the men on its starting and ending registers, the trips Joseph wrote,
+// the fuel with the photos sent beside it, the kit count and what changed since the day before. Read from the bot each time
+// (task=truckday — the website's /live shows the same); nothing here pays, files or asks: the truck's crew is your tap in the Pay
+// decisions tab (R132), and a slip of the writer's (the plate, R147 C7) is a fact for the weekly pack — any penalty is yours.
+let truck = { day: null, data: null, loading: false }
+async function loadTruck(day) {
+  truck.loading = true; truck.day = day
+  try { const { status, data } = await api(`truckday${day ? '&day=' + day : ''}`); truck.data = status === 200 && data && data.kind === 'truck_day' ? data : { error: (data && data.error) || 'The truck day could not be read.' } }
+  catch { truck.data = { error: 'No connection — try again.' } }
+  truck.loading = false
+  if (dept === 'machines') render()
+}
+function truckHtml() {
+  if (!truck.data) { if (!truck.loading) setTimeout(() => loadTruck(null)); return `<div class="group"><span>The truck</span><span>reading…</span></div>` }
+  const t = truck.data
+  if (t.error) return `<div class="group"><span>The truck</span></div><section class="item"><p class="why">${esc(t.error)}</p><div class="acts"><button class="act quiet" data-truckday="${esc(truck.day || '')}">Try again</button></div></section>`
+  const days = t.days || [], i = days.indexOf(t.date)
+  const prev = i > 0 ? days[i - 1] : i < 0 ? days.filter(d => d < t.date).pop() : null
+  const next = i >= 0 && i < days.length - 1 ? days[i + 1] : i < 0 ? days.find(d => d > t.date) : null
+  const ksh = n => n == null ? '—' : 'KES ' + kes(n)
+  const reg = (r, w) => r ? `<span class="chip done">✓ ${w} ${esc(r.at)}${r.late ? ` · sent ${esc(dayName(r.sent_on))}` : ''}</span>` : `<span class="chip">– ${w}</span>`
+  const trips = t.trips.length ? `<ul class="tlist">${t.trips.map(x => `<li><span class="code" style="color:${MC[x.machine] || 'var(--ink)'}">${esc(x.machine || x.machine_raw || '?')}</span><span>${esc(x.from)} → ${esc(x.to)}<small>${esc(x.man || x.man_raw || '?')}${x.man && x.man_raw && x.man.toLowerCase() !== x.man_raw.toLowerCase() ? ` · written «${esc(x.man_raw)}»` : ''}</small></span></li>`).join('')}</ul>` : `<p class="why">No trips written.</p>`
+  const fuel = t.fuel.length ? `<ul class="tlist">${t.fuel.map(f => `<li class="lone"><span><b>${f.litres ?? '?'} L</b> for <b>${ksh(f.ksh)}</b>${f.note ? `<small>${esc(f.note)}</small>` : ''}</span></li>`).join('')}</ul>` : `<p class="why">No fuel on the ending register.</p>`
+  const filed = (t.filed || []).length ? `<p class="why">Filed by you: ${t.filed.map(c => `${ksh(c.amount)}${c.receipt ? ` (${esc(c.receipt)})` : ''}`).join(' · ')}</p>` : ''
+  // a photo whose small copy is kept is shown (as the gauges are, W51); one not kept yet is described in the photo reading's words
+  const kept = (t.photos || []).filter(p => p.thumb), told = (t.photos || []).filter(p => !p.thumb)
+  const photos = (kept.length ? `<div class="photos">${kept.map(p => `<img class="gauge" data-reading="${p.id}" alt="${esc(p.at + ' · ' + p.what)}" ${photoCache.get(p.id) ? `src="${photoCache.get(p.id)}"` : ''}>`).join('')}</div>` : '')
+    + (told.length ? `<div class="tphotos">${told.map(p => `<span class="tphoto" title="${esc(p.what)}"><b>${esc(p.at)}</b> ${esc(String(p.what).slice(0, 80))}…</span>`).join('')}</div>` : '')
+  const kit = t.kit.length ? `<div class="facts">${t.kit.map(k => `<span>${esc(k.item)} <b>${k.qty ?? '?'}</b>${k.note ? ` (${esc(k.note)})` : ''}</span>`).join('')}${t.kit_zero ? `<span>${t.kit_zero} items at 0</span>` : ''}${t.kit_queried.length ? `<span>"?" ${esc(t.kit_queried.join(', '))}</span>` : ''}</div>` : `<p class="why">No COUNT on the ending register.</p>`
+  const change = t.kit_change ? `<p class="why">Since ${esc(dayName(t.kit_change.since))}: ${t.kit_change.items.length ? t.kit_change.items.map(c => `${esc(c.item)} ${c.before} → <b>${c.after}</b>`).join(' · ') : 'no change'}</p>` : ''
+  return `<div class="group"><span>The truck</span><span>no card · crew by your tap</span></div>
+  <section class="item"><div class="tnav"><button class="act quiet" data-truckday="${prev || ''}" ${prev ? '' : 'disabled'} aria-label="The truck day before">‹ ${prev ? esc(dayName(prev)) : ''}</button><b class="who">${esc(dayName(t.date))}</b><button class="act quiet" data-truckday="${next || ''}" ${next ? '' : 'disabled'} aria-label="The truck day after">${next ? esc(dayName(next)) : ''} ›</button></div>
+    <div class="steps">${reg(t.registers.sr, 'Start')}${reg(t.registers.er, 'End')}${t.area ? `<span class="chip">area as written: ${esc(t.area)}</span>` : ''}${t.plate ? `<span class="chip">plate ${esc(t.plate.written)}${t.plate.agrees || !t.plate.registry ? '' : ` · registry ${esc(t.plate.registry)}`}</span>` : ''}</div>
+    <div class="tsub"><span>Men</span><span>${t.men.length}</span></div>${t.men.length ? `<div class="facts">${t.men.map(m => `<span><b>${esc(m.name)}</b> ${m.sr && m.er ? 'start · end' : m.sr ? 'start only' : 'end only'}${m.on_list ? '' : ' · not on the staff list'}</span>`).join('')}</div>` : `<p class="why">No one on its registers.</p>`}
+    <div class="tsub"><span>Trips</span><span>${t.trips.length}</span></div>${trips}
+    <div class="tsub"><span>Fuel</span><span>${(t.photos || []).length ? `${t.photos.length} photo${t.photos.length === 1 ? '' : 's'}` : ''}</span></div>${fuel}${filed}${photos}${(t.other_photos || []).length ? `<p class="why">${t.other_photos.length} other photo${t.other_photos.length === 1 ? '' : 's'} that day — not of fuel</p>` : ''}
+    ${(t.other_costs || []).length ? `<div class="tsub"><span>Other costs</span></div><p class="why">${t.other_costs.map(c => `${esc(c.label)}: ${esc(c.man || '?')} ${ksh(c.ksh)}`).join(' · ')}</p>` : ''}
+    <div class="tsub"><span>Kit · the COUNT</span></div>${kit}${change}
+    ${(t.slips || []).length || (t.notes || []).length ? `<div class="tsub"><span>Notes</span></div>${t.slips.map(x => `<p class="why">${esc(x.words)} (${esc(x.rule)} — a fact for the weekly pack; any penalty is yours)</p>`).join('')}${t.notes.map(n => `<p class="why">${esc(n)}</p>`).join('')}` : ''}
+    ${(t.said || []).length ? `<div class="tsub"><span>Also said in the group</span><span>${t.said.length}</span></div>${t.said.map(x => `<p class="why">${esc(x.at)} · ${esc(x.text)}</p>`).join('')}` : ''}
+  </section>`
 }
 const navBar = () => { $('nav').innerHTML = Object.entries(DEPTS).map(([k, d]) => { const n = k === 'jobs' ? jobsToFill() : mine(k, false).filter(t => t.needs && !t.solved && !t.asked).length; return `<button class="tab" data-d="${k}" ${k === dept ? 'aria-current="page"' : ''}><svg viewBox="0 0 24 24" aria-hidden="true">${d.icon}</svg><span>${d.tab}</span>${n ? `<span class="badge">${n}</span>` : ''}</button>` }).join('') }
 function render() {
@@ -1247,6 +1304,7 @@ async function say(body, quiet) {
 document.addEventListener('click', async e => {
   const b = e.target.closest('button'), art = e.target.closest('.item.solved')
   if (b?.dataset.d) { dept = b.dataset.d; scroller.scrollTop = 0; render(); if (dept === 'jobs') loadCal(); return }
+  if (b && 'truckday' in b.dataset) { if (!truck.loading) loadTruck(b.dataset.truckday || null); return }
   if (b?.dataset.cell) { calSel = b.dataset.cell; if (calSel.slice(0, 7) !== calMonth) { calMonth = calSel.slice(0, 7); return loadCal() } return renderJobs() }
   if (b?.dataset.ongoingjoin) { b.disabled = true; shellJob = Number(b.dataset.ongoingjoin); const out = await jobSay({ action: 'job_set', job: shellJob, field: 'job_number', value: b.dataset.card }); shellJob = null; if (!out) { b.disabled = false; return } toast(`✓ Joined to #${b.dataset.card}.`); return openShell(Number(b.dataset.ongoingjoin)) }
   if (b?.dataset.ongoingmake) { b.disabled = true; const out = await jobSay({ action: 'job_from_card', card_job: Number(b.dataset.ongoingmake) }); if (!out || !out.job) { b.disabled = false; return } return openShell(out.job) }
@@ -1280,9 +1338,10 @@ document.addEventListener('click', async e => {
       return say({ action: 'issue', machine: a.machine, day: a.day, fp: a.fp, answer: a.answer, ...(a.job != null ? { job: a.job } : {}), issue: t.what, ...at })
     }
     const a = t.plain[Number(b.dataset.i)]; if (!a) return
-    if (a.compose) return openSheet({ ...a.compose, ...at, who: (t.r.data && t.r.data.payee) || null, day: a.day || (t.r.data && t.r.data.day) || null })
+    if (a.compose) return openSheet({ ...a.compose, ...at, who: a.compose.who || (t.r.data && t.r.data.payee) || null, day: a.day || (t.r.data && t.r.data.day) || null })
     b.disabled = true
-    return say(a.action ? { ...a, ...at } : { text: a.text, receipt: a.receipt, ...at })
+    // a button's own day rides with it (a register line of the day before) — the bot files the cost on that day
+    return say(a.action ? { ...a, ...at } : { text: a.text, receipt: a.receipt, ...(a.day ? { day: a.day } : {}), ...at })
   }
   if (art && !b) { const k = art.dataset.key; opened.has(k) ? opened.delete(k) : opened.add(k); art.classList.toggle('open') }
 })
@@ -1333,14 +1392,14 @@ async function crew() {
 }
 function openSheet(pre = {}) {
   const mode = pre.owed ? 'owed' : pre.ask ? 'ask' : pre.paste ? 'paste' : pre.bucket === 'business' ? 'business' : 'cost'
-  compose = { mode, machine: pre.machine || null, kind: null, receipt: pre.receipt || null, id: pre.id || null, item: pre.item || 0, day: pre.day || lastDays()[0].iso, shift: pre.shift === 'night' ? 'night' : 'day', who: pre.who ? [pre.who] : [] }
+  compose = { mode, machine: pre.machine || null, kind: pre.kind || null, receipt: pre.receipt || null, id: pre.id || null, item: pre.item || 0, day: pre.day || lastDays()[0].iso, shift: pre.shift === 'night' ? 'night' : 'day', who: pre.who ? [pre.who] : [] }
   $('amount').value = pre.amount ? Number(pre.amount).toLocaleString('en-US') : ''; $('who').value = ''; $('free').value = ''; $('long').value = ''
   $('cost-fields').hidden = mode !== 'cost'; $('text-fields').hidden = mode === 'cost' || mode === 'owed'; $('owed-fields').hidden = mode !== 'owed'; $('qa').hidden = mode !== 'ask'
   $('from').value = ''; $('to').value = ''; compose.ids = pre.owed || null; compose.code = null
   const amt = pre.amount ? `KES ${Number(pre.amount).toLocaleString('en-US')}` : ''
   if (mode === 'cost') {
     $('sheet-title').textContent = pre.receipt ? 'What was this payment for?' : 'Say a cost'
-    $('sheet-hint').textContent = pre.receipt ? `M-Pesa ${pre.receipt} · ${amt} — your answer is attached to this receipt.` : 'Pick the machine and the kind; the bot reads it as if you had dictated it.'
+    $('sheet-hint').textContent = pre.receipt ? `M-Pesa ${pre.receipt} · ${amt} — your answer is attached to this receipt.${pre.kind ? ' The kind is only a suggestion — check it.' : ''}` :'Pick the machine and the kind; the bot reads it as if you had dictated it.'
     const days = lastDays()
     picks($('days'), days.map(d => d.label), () => (days.find(d => d.iso === compose.day) || {}).label, v => { compose.day = (days.find(d => d.label === v) || days[0]).iso; crew() }, true)
     picks($('shifts'), ['Day shift', 'Night shift'], () => compose.shift === 'night' ? 'Night shift' : 'Day shift', v => { compose.shift = v === 'Night shift' ? 'night' : 'day' }, true)
