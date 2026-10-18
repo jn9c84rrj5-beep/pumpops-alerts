@@ -357,6 +357,23 @@
   <div class="qa" id="qa" hidden></div>
 </dialog>
 <dialog id="job" aria-label="Job"><div id="job-body"></div></dialog>
+<!-- HIS SHIFT (R169, 18 Oct 2026: "i should have the freedom to assign attendance/pay"): any man, any date up to today, day or night, register or not -->
+<dialog id="assign" aria-labelledby="assign-title">
+  <h2 id="assign-title">Assign a shift</h2>
+  <p class="hint">Any man, any date up to today, day or night — register or not. Your entry wins for that shift; registers that come later are shown beside it and never change it. Undo is under Solved.</p>
+  <div class="two">
+    <div><div class="label">Date</div><input id="as-date" type="date" aria-label="Date"></div>
+    <div><div class="label">Shift</div><div class="picks" id="as-shifts"></div></div>
+  </div>
+  <div class="label">Machine (optional)</div><div class="picks" id="as-machines"></div>
+  <div class="label" id="as-men-label">Men</div><div class="picks" id="as-men"></div>
+  <select class="more" id="as-add" aria-label="Add a man"></select>
+  <div class="label">Attendance</div><div class="picks" id="as-att"></div>
+  <div id="as-paybox"><div class="label">Pay</div><div class="picks" id="as-pay"></div><input id="as-his" inputmode="numeric" autocomplete="off" placeholder="Your figure (KES)" style="margin-top:8px" hidden></div>
+  <div class="label">Your reason (kept with the shift, as you say it)</div><input id="as-why" autocomplete="off" placeholder="i will pay standard for 15/oct day">
+  <div class="preview" id="as-preview" aria-live="polite"></div>
+  <div class="sheet-actions"><button class="act quiet" id="as-cancel">Cancel</button><button class="act yes" id="as-send">Assign</button></div>
+</dialog>
 <div class="toast glass" id="toast" role="status"></div>
 
 <script>
@@ -393,7 +410,7 @@ const kes = n => Number(n || 0).toLocaleString('en-US')
 const toast = t => { const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove('on'), 5000) }
 const key = s => { const p = '='.repeat((4 - s.length % 4) % 4), b = atob((s + p).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)) }
 const api = async (task, opts = {}) => {
-  if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : task.startsWith('calendar') ? window.FIXTURE_CAL : task === 'lists' ? window.FIXTURE_LISTS : task.startsWith('proposals') ? (window.FIXTURE_PROPOSALS || {}) : task.startsWith('crew') ? (window.FIXTURE_CREW || { names: [] }) : task.startsWith('truckday') ? (window.FIXTURE_TRUCK || {}) : task.startsWith('assistant') ? (window.FIXTURE_ASK || { questions: [], mac: { awake: false, ears: false, waiting: 0 } }) : opts.body && opts.body.action === 'assistant_ask' ? { id: null, mac: (window.FIXTURE_ASK || {}).mac || { awake: false } } : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
+  if (window.FIXTURE) return { status: 200, data: task === 'feed' ? window.FIXTURE : task.startsWith('calendar') ? window.FIXTURE_CAL : task === 'lists' ? window.FIXTURE_LISTS : task.startsWith('proposals') ? (window.FIXTURE_PROPOSALS || {}) : task.startsWith('crew') ? (window.FIXTURE_CREW || { names: [] }) : task.startsWith('shiftcrew') ? (window.FIXTURE_SHIFTCREW || { men: [], staff: [] }) : task.startsWith('truckday') ? (window.FIXTURE_TRUCK || {}) : task.startsWith('assistant') ? (window.FIXTURE_ASK || { questions: [], mac: { awake: false, ears: false, waiting: 0 } }) : opts.body && opts.body.action === 'assistant_ask' ? { id: null, mac: (window.FIXTURE_ASK || {}).mac || { awake: false } } : { reply: '(fixture) ' + JSON.stringify(opts.body) } }
   // the bot runs beside its database (us-east-1), not in the region nearest the phone (ap-south-1): every one of its database calls
   // crossed the world — 10 Oct 2026, "also its really slow": the feed 3.6 s → 1.4 s, the calendar 2.1 s → 0.9 s, the lists 2.2 s → 1.0 s
   const r = await fetch(`${FN}?task=${task}&forceFunctionRegion=us-east-1`, { method: opts.body ? 'POST' : 'GET', headers: { ...(opts.body ? { 'Content-Type': 'application/json' } : {}), ...(store.token ? { 'x-device-token': store.token } : {}) }, body: opts.body ? JSON.stringify(opts.body) : undefined })
@@ -802,6 +819,8 @@ function render() {
   $('facets').hidden = !facetsOn(); $('facets').innerHTML = Object.entries(facet).filter(([, v]) => v).map(([k, v]) => `<button class="pick" aria-pressed="true" data-facet="${k}">${esc(v)} ×</button>`).join('')
   document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.f === f)))
   let html = boards(f)
+  // HIS SHIFT (R169): "Assign a shift" lives with the money
+  if (dept === 'money') html += `<button class="act quiet nudge" data-assign>Assign a shift…</button>`
   // "Ask him" moves a thing to Investigating (the owner, 2 Oct 2026): it leaves Needs you and waits there until it is answered
   const repliedMen = threads.filter(m => m.replied).length
   if (f === 'pending') html += (repliedMen ? `<button class="act quiet nudge" data-f-go="asked">${repliedMen} ${repliedMen === 1 ? 'man has' : 'men have'} replied — Investigating</button>` : '') + (p.length ? p.map(card).join('') : `<p class="empty">Nothing needs you here.${threads.length ? ` ${threads.length} being investigated.` : ''}</p>`)
@@ -1325,7 +1344,7 @@ function focusMsg(id) { dept = 'all'; filters.all = 'all'; render(); const el = 
 const ASK_ICON = '<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>'
 const asking = { list: [], mac: null, mine: new Set(), spoken: new Set(), timer: null, rec: null, chunks: [], t0: 0, mime: '', loaded: false, sending: false, voice: true }
 const askWaiting = () => asking.list.filter(q => q.status === 'queued' || q.status === 'working').length
-const ASK_TRY = ["What's A3 doing today?", "Who's still owed supper?", "What's waiting for me?", "Give A3's team 500 each for yesterday, they finished late", 'Benson apewe 500 ya jana']
+const ASK_TRY = ["What's A3 doing today?", "Who's still owed supper?", "What's waiting for me?", "Give A3's team 500 each for yesterday, they finished late", 'Benson apewe 500 ya jana', "Pay Isaiah's team standard for 15 Oct day, 1.5 for the night"]
 async function loadAsk() {
   const { status, data } = await api('assistant').catch(() => ({ status: 0, data: {} }))
   if (status === 403) { store.token = null; return start() }
@@ -1384,7 +1403,7 @@ function qaCard(q) {
   else {
     const a = q.answer || {}, act = a.action
     let acts = ''
-    if (act && act.kind === 'pay_award') {
+    if (act && (act.kind === 'pay_award' || act.kind === 'assign_shift')) {
       acts = q.action_state === 'confirmed' ? `<div class="acts"><span class="chip done">✓ In their pay</span>${q.action_outbox_id ? `<button class="act quiet" data-askundo="${q.action_outbox_id}">Undo</button>` : ''}</div>`
         : q.action_state === 'undone' ? `<div class="acts"><span class="chip">Undone — not in their pay</span></div>`
         : `<div class="acts"><button class="act yes" data-askact="${q.id}">${esc(act.label || 'Confirm')}</button><span class="why">nothing is written until you tap</span></div>`
@@ -1445,6 +1464,57 @@ async function micStart() {
 }
 function micStop() { try { asking.rec && asking.rec.state !== 'inactive' && asking.rec.stop() } catch { asking.rec = null; renderAsk() } }
 
+// ══ HIS SHIFT — "Assign a shift" (R169; the owner, 18 Oct 2026: "i should have the freedom to assign attendance/pay" · "yes build the
+// assign any shift proposal") ═══════════════════════════════════════════════════════════════════════════════════════════════════════
+// Any man, any date up to today, day or night, register or not. The men of a machine-day are suggested — the written card's registers,
+// then the bot's own (task=shiftcrew), by name — he ticks, unticks and adds. One tap = task=reply, assign_shift → app_assign_shift (Y10),
+// the audit row first; it lands under Money → Solved, where Reopen ("Undo my answer") voids it. /live has the same sheet (lib/live/AssignShift.js).
+const assigning = { day: null, shift: 'day', machine: null, men: [], staff: [], att: 'worked', pay: 'standard', note: '' }
+const AS_ATT = [['worked', 'Worked'], ['half', 'Half'], ['absent', 'Absent'], ['excused', 'Excused']], AS_PAY = [['standard', 'Standard'], ['x1.5', '×1.5'], ['x2', '×2'], ['own', 'My own figure']]
+const asPicks = (el, items, cur, onPick) => { el.innerHTML = items.map(([v, l]) => `<button class="pick" aria-pressed="${cur === v}" data-v="${esc(v)}">${esc(l)}</button>`).join(''); el.onclick = e => { const c = e.target.closest('.pick'); if (c) onPick(c.dataset.v) } }
+function asOff() { return assigning.att === 'absent' || assigning.att === 'excused' }
+function asPrepared() {
+  const off = asOff(), his = $('as-his').value.replace(/[^\d.]/g, '')
+  return { lines: assigning.men.filter(m => m.on).map(m => ({ name: m.name, day: assigning.day, shift: assigning.shift, attendance: assigning.att, pay: off ? 'standard' : assigning.pay, his_ksh: !off && assigning.pay === 'own' && his !== '' ? Number(his) : null })), machine: assigning.machine, words: $('as-why').value.trim() }
+}
+const asWord = l => l.attendance === 'absent' || l.attendance === 'excused' ? l.attendance : `${l.attendance === 'half' ? 'half · ' : ''}${l.pay === 'own' ? `${kes(l.his_ksh)} (your figure)` : l.pay === 'x1.5' ? '×1.5' : l.pay === 'x2' ? '×2' : 'standard'}`
+function drawAssign() {
+  asPicks($('as-shifts'), [['day', 'Day'], ['night', 'Night']], assigning.shift, v => { assigning.shift = v; assignCrew() })
+  asPicks($('as-machines'), (feed.machines || []).map(m => [m, m]), assigning.machine, v => { assigning.machine = assigning.machine === v ? null : v; assignCrew() })
+  $('as-men-label').textContent = 'Men' + (assigning.note ? ` — ${assigning.note}` : '')
+  $('as-men').innerHTML = assigning.men.length ? assigning.men.map((m, i) => `<button class="pick" aria-pressed="${m.on}" data-i="${i}" title="${esc(m.from || 'added by you')}">${esc(m.name)}</button>`).join('') : `<span class="why">${assigning.machine ? 'nobody suggested' : 'pick a machine to have its crew suggested, or add the men'}</span>`
+  $('as-men').onclick = e => { const c = e.target.closest('.pick'); if (!c) return; const m = assigning.men[Number(c.dataset.i)]; m.on = !m.on; drawAssign() }
+  $('as-add').innerHTML = `<option value="">Add a man…</option>` + assigning.staff.filter(n => !assigning.men.some(m => m.name === n)).map(n => `<option>${esc(n)}</option>`).join('')
+  asPicks($('as-att'), AS_ATT, assigning.att, v => { assigning.att = v; drawAssign() })
+  $('as-paybox').hidden = asOff()
+  asPicks($('as-pay'), AS_PAY, assigning.pay, v => { assigning.pay = v; drawAssign() })
+  $('as-his').hidden = assigning.pay !== 'own'
+  const p = asPrepared(), today = lastDays()[0].iso
+  const ok = p.lines.length && assigning.day && assigning.day <= today && p.words.length >= 3 && (asOff() || assigning.pay !== 'own' || p.lines.every(l => l.his_ksh != null))
+  $('as-preview').textContent = p.lines.length ? `${longDay(assigning.day)} ${assigning.shift}${assigning.machine ? ` · ${assigning.machine}` : ''} — ${asWord(p.lines[0])}: ${p.lines.map(l => l.name.split(' ').slice(0, 2).join(' ')).join(', ')}${p.words ? ` — “${p.words}”` : ' — say why'}` : 'Tick or add the men.'
+  $('as-send').disabled = !ok; $('as-send').textContent = `Assign ${p.lines.length === 1 ? 'this shift' : `${p.lines.length} shifts`}`
+}
+async function assignCrew() {
+  assigning.note = assigning.machine ? 'looking at the registers…' : ''; drawAssign()
+  const { data } = await api(`shiftcrew&machine=${encodeURIComponent(assigning.machine || 'none')}&day=${assigning.day}&shift=${assigning.shift}`).catch(() => ({ data: {} }))
+  if (Array.isArray(data.staff)) assigning.staff = data.staff
+  const found = Array.isArray(data.men) ? data.men : []
+  assigning.men = [...found.map(m => ({ name: m.name, from: m.from, on: true })), ...assigning.men.filter(x => x.added && !found.some(m => m.name === x.name))]
+  assigning.note = assigning.machine ? (found.length ? `${found.length} on ${assigning.machine}'s registers — untick anyone who did not work it` : `nobody on ${assigning.machine}'s registers that ${assigning.shift} — add the men`) : ''
+  drawAssign()
+}
+function openAssign() {
+  const today = lastDays()[0].iso
+  Object.assign(assigning, { day: today, shift: 'day', machine: null, men: [], att: 'worked', pay: 'standard', note: '' })
+  $('as-date').value = today; $('as-date').max = today; $('as-why').value = ''; $('as-his').value = ''
+  drawAssign(); $('assign').showModal(); assignCrew()
+}
+$('as-date').onchange = () => { assigning.day = $('as-date').value || lastDays()[0].iso; assignCrew() }
+$('as-add').onchange = () => { const n = $('as-add').value; if (n) { assigning.men.push({ name: n, on: true, added: true }); drawAssign() } }
+$('as-why').oninput = drawAssign; $('as-his').oninput = drawAssign
+$('as-cancel').onclick = () => $('assign').close()
+$('as-send').onclick = async () => { const p = asPrepared(); if (!p.lines.length) return; $('as-send').disabled = true; const ok = await say({ action: 'assign_shift', assign: p }); if (ok) $('assign').close(); else $('as-send').disabled = false }
+
 // ── answering ──
 async function say(body, quiet) {
   busy = true
@@ -1460,7 +1530,9 @@ document.addEventListener('click', async e => {
   if (b?.dataset.asktry) { const box = $('askq'); if (box) { box.value = b.dataset.asktry; box.focus() } return }
   if (b?.dataset.asksay) { unlockVoice(); const q = asking.list.find(x => String(x.id) === b.dataset.asksay); if (q) speakIt(q.answer); return }
   // his tap on a prepared award: the bot files it through app_pay_adjustment_write; Undo = Reopen on the Solved row it makes (W18)
-  if (b?.dataset.askact) { b.disabled = true; const q = asking.list.find(x => String(x.id) === b.dataset.askact); const ok = await say({ action: 'pay_award', question: Number(b.dataset.askact) }); if (ok && q) { q.action_state = 'confirmed'; loadAsk() } else b.disabled = false; return }
+  // … and his tap on a prepared assignment of shifts (R169): app_assign_shift through the same answer path; Undo the same way
+  if (b?.dataset.askact) { b.disabled = true; const q = asking.list.find(x => String(x.id) === b.dataset.askact); const kind = q?.answer?.action?.kind === 'assign_shift' ? 'assign_shift' : 'pay_award'; const ok = await say({ action: kind, question: Number(b.dataset.askact) }); if (ok && q) { q.action_state = 'confirmed'; loadAsk() } else b.disabled = false; return }
+  if (b && 'assign' in b.dataset) return openAssign()
   if (b?.dataset.askundo) { b.disabled = true; const ok = await say({ action: 'reopen', id: Number(b.dataset.askundo), item: 0 }); if (ok) loadAsk(); else b.disabled = false; return }
   if (b && 'askplan' in b.dataset) { dept = 'jobs'; render(); loadCal().then(() => openPlan(b.dataset.askplan || (cal && cal.today))); return }
   if (b && 'truckday' in b.dataset) { if (!truck.loading) loadTruck(b.dataset.truckday || null); return }
