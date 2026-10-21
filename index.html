@@ -204,6 +204,11 @@
   .tnav .act[disabled] { visibility: hidden; }
   .tsub { margin: 12px 0 4px; font-size: 12.5px; font-weight: 600; color: var(--body); display: flex; justify-content: space-between; gap: 10px; }
   .tlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+  /* the investigations (W74): the head opens and folds it; one note box, one outcome line */
+  .inv-head { cursor: pointer; }
+  .inv-head:focus-visible { outline: 2px solid var(--primary-ink); outline-offset: 4px; border-radius: 10px; }
+  .inv .inv-in { margin-top: 12px; }
+  .inv textarea.inv-in { min-height: 64px; }
   .tlist li { display: grid; grid-template-columns: 40px 1fr; gap: 10px; align-items: baseline; color: var(--strong); font-size: 14px; }
   .tlist .code { font-size: 15px; min-width: 0; }
   .tlist small { display: block; color: var(--body); font-size: 12.5px; }
@@ -463,6 +468,7 @@ function show() {
   clearInterval(timer); timer = setInterval(() => {
     const asking = $('sheet').open && compose.mode === 'ask'
     if (document.hidden || busy || ($('sheet').open && !asking) || (!asking && tick++ % 2)) return
+    if (document.activeElement && document.activeElement.closest && document.activeElement.closest('.inv')) return   // he is typing in an investigation (W74)
     load().then(() => { if ($('sheet').open && compose.mode === 'ask') thread() })
   }, 15000)
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load() })
@@ -570,7 +576,7 @@ function brief() {
   if (dept === 'money') { const m = b.money || {}; return `<b>KES ${kes(m.out)} out today in ${m.n_out || 0} payment${m.n_out === 1 ? '' : 's'}.</b> KES ${kes(m.proven)} proven by your own word.${m.gaps ? ` ${m.gaps} text${m.gaps === 1 ? '' : 's'} never reached me.` : ''}${owedStaff().length ? ` KES ${kes(owedStaff().reduce((a, o) => a + Number(o.amount_ksh), 0))} owed to staff.` : ''}${tail}` }
   if (dept === 'business') return `<b>Other business</b> — spending that belongs to no machine: KES ${kes((b.money || {}).business)} today.${tail}`
   if (dept === 'personal') return `<b>Other personal</b> — kept off the business books: KES ${kes((b.money || {}).personal)} today.${tail}`
-  return `<b>Kit</b> — transfers, items, what stands at the sites.${tail}`
+  return `<b>Kit</b> — transfers, items, what stands at the sites.${invOpenCount() ? ` ${invOpenCount()} investigation${invOpenCount() === 1 ? '' : 's'} open.` : ''}${tail}`
 }
 
 // ── INVESTIGATING: ONE THREAD A MAN (the owner, 5 Oct 2026: "multiple ask hims should be grouped in per staff member under the
@@ -733,6 +739,7 @@ function boards(f) {
   const b = feed.board || {}
   // the Engine hours, at the TOP of Machines (the owner, 9 Oct 2026: "what section? i can't see a section for engine hours?" — it sat at the very bottom, under every open thing)
   if (dept === 'machines' && showsBoards(f)) return engineHtml(b.engines || [])
+  if (dept === 'kit' && showsBoards(f)) return invHtml()   // the investigations (W74), at the top of Kit
   if (dept === 'money' && showsBoards(f) && b.money) { const m = b.money; return `<section class="item"><div class="totals"><div><div class="k">Out today</div><div class="v">${kes(m.out)}</div></div><div><div class="k">Proven</div><div class="v">${kes(m.proven)}</div></div><div><div class="k">No purpose yet</div><div class="v">${kes(m.waiting)}</div></div></div><div class="facts"><span>in <b>${kes(m.in)}</b></span><span>other business <b>${kes(m.business)}</b></span><span>personal <b>${kes(m.personal)}</b></span>${m.explained ? `<span>in your words <b>${kes(m.explained)}</b></span>` : ''}${m.gaps ? `<span>texts missing <b>${m.gaps}</b></span>` : ''}</div></section>` }
   return ''
 }
@@ -744,6 +751,45 @@ function engineHtml(es) {
   const due = (k, x) => x.togo == null ? `<span class="chip">${k} — no reading</span>` : `<span class="chip ${x.color === 'red' ? 'need' : x.color === 'green' ? 'done' : 'need'}">${x.color === 'red' ? '<span class="dot"></span>' : ''}${k} ${x.togo < 0 ? `overdue ${n1(-x.togo)} h` : `in ${n1(x.togo)} h`} · at ${n1(x.next)}</span>`
   return `<div class="group"><span>Engine hours</span><span>service: engine 250 h · hydraulic 1,000 h</span></div>` + es.map(e => `<section class="item"><div class="mach"><div class="code">${esc(e.code)}</div><div><div class="who">${e.hours == null ? 'no reading yet' : `${n1(e.hours)} h${e.estimated ? ' <small>(estimated — meter broken)</small>' : ''}`}</div><div class="where">${e.at ? (e.estimated ? 'after ' : 'read ') + dayName(e.at) : ''}${e.engine.last ? ` · last engine service ${dayName(e.engine.last)}` : ''}</div></div>
     <div class="steps">${due('Engine service', e.engine)}${due('Hydraulic service', e.hydraulic)}</div></div></section>`).join('')
+}
+// ══ INVESTIGATIONS (W74; the owner, 22 Oct 2026: "i think we need a ledger to track these investigations") ═════════════════════════
+// Open first: the title, the machine, the day it was opened and his last note. A tap opens it: what is missing, the evidence, his notes,
+// one box to add a note, and Close with its outcome line. Every write goes through the bot (task=reply, action investigation →
+// bw_investigation_write). It never charges anyone — penalties are his alone (R134, R140, R165, R166).
+const invOpen = new Set(), invDraft = {}   // what he is typing is kept here, so a refresh of the feed cannot wipe it
+const invList = () => [...(feed.investigations || [])].sort((a, b) => ((a.status === 'open' ? 0 : 1) - (b.status === 'open' ? 0 : 1)) || (a.opened_on < b.opened_on ? 1 : a.opened_on > b.opened_on ? -1 : b.id - a.id))
+const invOpenCount = () => (feed.investigations || []).filter(v => v.status === 'open').length
+const clip = (s, n) => { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s }
+const noteDay = n => n.said ? dayName(n.said) : dated(n.at)
+function invHtml() {
+  const vs = invList(); if (!vs.length) return ''
+  return `<div class="group"><span>Investigations</span><span>${invOpenCount()} open · never a fine</span></div>` + vs.map(v => {
+    const closed = v.status !== 'open', on = invOpen.has(v.id), notes = v.notes || [], ev = v.evidence || [], last = notes[notes.length - 1]
+    const head = `<div class="inv-head" data-invhead="${v.id}" role="button" tabindex="0" aria-expanded="${on}"><div class="meta">${closed ? '<span class="chip done">✓ Closed</span>' : '<span class="chip info">Open</span>'}${(v.machine_codes || []).map(m => `<span class="chip">${esc(m)}</span>`).join('')}<span>opened ${dayName(v.opened_on)}</span></div>
+      <div class="what">${esc(v.title)}</div><div class="was">${last ? `${noteDay(last)}: “${esc(clip(last.words, on ? 9999 : 140))}”` : 'No note yet.'}</div></div>`
+    if (!on) return `<section class="item inv">${head}</section>`
+    const facts = [v.est_value_ksh != null ? `<span>value <b>KES ${kes(v.est_value_ksh)}</b></span>` : '', (v.people || []).length ? `<span>there: <b>${v.people.map(esc).join(', ')}</b></span>` : ''].filter(Boolean).join('')
+    return `<section class="item inv open">${head}
+      <div class="more">${esc(v.what)}</div>${facts ? `<div class="facts" style="margin-top:8px">${facts}</div>` : ''}
+      ${closed ? `<div class="answer">Outcome: ${esc(v.outcome)}</div>` : ''}
+      <div class="tsub"><span>Evidence</span><span>${ev.length}</span></div>${ev.length ? `<ul class="tlist">${ev.map(x => `<li class="lone"><span>${esc(x.what)}<small>${esc([x.when, x.ref].filter(Boolean).join(' · '))}</small></span></li>`).join('')}</ul>` : '<p class="why">None yet.</p>'}
+      <div class="tsub"><span>Your notes</span><span>${notes.length}</span></div><div class="thread">${notes.map(n => `<div class="ln me">${esc(n.words)}<time>${noteDay(n)}</time></div>`).join('') || '<div class="note">None yet.</div>'}</div>
+      <textarea class="inv-in" data-invdraft="n${v.id}" rows="2" autocomplete="off" placeholder="Add a note" aria-label="Add a note">${esc(invDraft['n' + v.id] || '')}</textarea>
+      <div class="acts"><button class="act" data-invnote="${v.id}">Add note</button></div>
+      ${closed ? `<div class="acts"><button class="act quiet" data-invreopen="${v.id}">Reopen</button></div>`
+        : `<input class="inv-in" data-invdraft="o${v.id}" autocomplete="off" placeholder="Outcome — one line" aria-label="The outcome" value="${esc(invDraft['o' + v.id] || '')}">
+      <div class="acts"><button class="act" data-invclose="${v.id}">Close</button></div>`}
+    </section>`
+  }).join('')
+}
+document.addEventListener('input', e => { const k = e.target.dataset && e.target.dataset.invdraft; if (k) invDraft[k] = e.target.value })
+document.addEventListener('keydown', e => { const h = e.target.closest && e.target.closest('[data-invhead]'); if (h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); h.click() } })
+async function invSay(b, body, draftKey) {
+  const kept = draftKey ? invDraft[draftKey] : undefined
+  if (draftKey) delete invDraft[draftKey]
+  b.disabled = true
+  const ok = await say({ action: 'investigation', ...body })
+  if (!ok) { if (draftKey) invDraft[draftKey] = kept; b.disabled = false; render() }
 }
 function boardsBelow(f) {
   const b = feed.board || {}
@@ -1541,6 +1587,12 @@ document.addEventListener('click', async e => {
   if (b?.dataset.askundo) { b.disabled = true; const ok = await say({ action: 'reopen', id: Number(b.dataset.askundo), item: 0 }); if (ok) loadAsk(); else b.disabled = false; return }
   if (b && 'askplan' in b.dataset) { dept = 'jobs'; render(); loadCal().then(() => openPlan(b.dataset.askplan || (cal && cal.today))); return }
   if (b && 'truckday' in b.dataset) { if (!truck.loading) loadTruck(b.dataset.truckday || null); return }
+  // the investigations (W74): open or fold one; his note; Close with its outcome; Reopen
+  const ih = !b && e.target.closest('[data-invhead]')
+  if (ih) { const id = Number(ih.dataset.invhead); invOpen.has(id) ? invOpen.delete(id) : invOpen.add(id); return render() }
+  if (b?.dataset.invnote) { const id = Number(b.dataset.invnote), words = invDraft['n' + id] || ''; if (!words.trim()) { toast('Write the note first.'); return } return invSay(b, { do: 'note', inv: id, words }, 'n' + id) }
+  if (b?.dataset.invclose) { const id = Number(b.dataset.invclose), outcome = (invDraft['o' + id] || '').trim(); if (!outcome) { toast('Say the outcome — one line.'); document.querySelector(`[data-invdraft="o${id}"]`)?.focus(); return } return invSay(b, { do: 'close', inv: id, outcome }, 'o' + id) }
+  if (b?.dataset.invreopen) return invSay(b, { do: 'reopen', inv: Number(b.dataset.invreopen) })
   if (b?.dataset.cell) { calSel = b.dataset.cell; if (calSel.slice(0, 7) !== calMonth) { calMonth = calSel.slice(0, 7); return loadCal() } return renderJobs() }
   if (b?.dataset.ongoingjoin) { b.disabled = true; shellJob = Number(b.dataset.ongoingjoin); const out = await jobSay({ action: 'job_set', job: shellJob, field: 'job_number', value: b.dataset.card }); shellJob = null; if (!out) { b.disabled = false; return } toast(`✓ Joined to #${b.dataset.card}.`); return openShell(Number(b.dataset.ongoingjoin)) }
   if (b?.dataset.ongoingmake) { b.disabled = true; const out = await jobSay({ action: 'job_from_card', card_job: Number(b.dataset.ongoingmake) }); if (!out || !out.job) { b.disabled = false; return } return openShell(out.job) }
