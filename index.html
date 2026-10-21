@@ -567,7 +567,7 @@ function brief() {
   if (dept === 'all') { const parts = Object.keys(DEPTS).filter(k => k !== 'all').map(k => [DEPTS[k].tab, todo(k).length]).filter(x => x[1]); return n ? `<b>${n} thing${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} you</b> — ${parts.map(([t, c]) => `${t} ${c}`).join(' · ')}.${w ? ` ${w} being investigated.` : ''}` : `<b>Nothing needs you.</b>${w ? ` ${w} being investigated.` : ''}` }
   if (dept === 'machines') { const ms = b.machines || [], m3 = ms.reduce((a, m) => a + Number(m.m3 || 0), 0), quiet = ms.filter(m => m.quiet_min); return `<b>${ms.length} machine${ms.length === 1 ? '' : 's'} out, ${Math.round(m3 * 10) / 10} m³ so far.</b> ${ms.filter(m => m.er).length} closed their day.${quiet.length ? ` Quiet: ${quiet.map(m => m.code).join(', ')}.` : ''}${tail}` }
   if (dept === 'fuel') { const fs = b.fuel || [], rf = fs.reduce((a, f) => a + f.refuels, 0); return `<b>${fs.length} gauge${fs.length === 1 ? '' : 's'} read today, ${rf} refuel${rf === 1 ? '' : 's'}.</b>${tail}` }
-  if (dept === 'money') { const m = b.money || {}; return `<b>KES ${kes(m.out)} out today in ${m.n_out || 0} payment${m.n_out === 1 ? '' : 's'}.</b> KES ${kes(m.proven)} proven by your own word.${m.gaps ? ` ${m.gaps} text${m.gaps === 1 ? '' : 's'} never reached me.` : ''}${(feed.owed || []).length ? ` KES ${kes((feed.owed || []).reduce((a, o) => a + Number(o.amount_ksh), 0))} owed on the registers.` : ''}${tail}` }
+  if (dept === 'money') { const m = b.money || {}; return `<b>KES ${kes(m.out)} out today in ${m.n_out || 0} payment${m.n_out === 1 ? '' : 's'}.</b> KES ${kes(m.proven)} proven by your own word.${m.gaps ? ` ${m.gaps} text${m.gaps === 1 ? '' : 's'} never reached me.` : ''}${owedStaff().length ? ` KES ${kes(owedStaff().reduce((a, o) => a + Number(o.amount_ksh), 0))} owed to staff.` : ''}${tail}` }
   if (dept === 'business') return `<b>Other business</b> — spending that belongs to no machine: KES ${kes((b.money || {}).business)} today.${tail}`
   if (dept === 'personal') return `<b>Other personal</b> — kept off the business books: KES ${kes((b.money || {}).personal)} today.${tail}`
   return `<b>Kit</b> — transfers, items, what stands at the sites.${tail}`
@@ -693,6 +693,8 @@ function everything() {
 // of the owed pending payments")
 const owedSel = new Set()
 const dayName = iso => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
+// R129: what the men are owed is supper, breakfast and early start only; works (fuel runs, between sites) are never in the figure
+const owedStaff = () => { const allow = new Set(feed.allowances || ['MEAL_SUPPER', 'MEAL_BREAKFAST', 'TRANSPORT_EARLY_START']); return (feed.owed || []).filter(o => allow.has(o.cost_code)) }
 function owedGroups() { const g = new Map(); for (const o of feed.owed || []) { const k = `${o.machine_code}|${o.day_date}|${o.cost_code}`; if (!g.has(k)) g.set(k, []); g.get(k).push(o) } return g }
 function owedHtml() {
   const rows = feed.owed || []; if (!rows.length) return ''
