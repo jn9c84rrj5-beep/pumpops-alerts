@@ -694,17 +694,20 @@ function everything() {
 const owedSel = new Set()
 const dayName = iso => new Date(iso + 'T12:00:00Z').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })
 // R129: what the men are owed is supper, breakfast and early start only; works (fuel runs, between sites) are never in the figure
-const owedStaff = () => { const allow = new Set(feed.allowances || ['MEAL_SUPPER', 'MEAL_BREAKFAST', 'TRANSPORT_EARLY_START']); return (feed.owed || []).filter(o => allow.has(o.cost_code)) }
-function owedGroups() { const g = new Map(); for (const o of feed.owed || []) { const k = `${o.machine_code}|${o.day_date}|${o.cost_code}`; if (!g.has(k)) g.set(k, []); g.get(k).push(o) } return g }
+// R171 (21 Oct 2026): a between-sites line the bot marked a fare (several men at 100 or 200 each) is owed to the man — its own kind, FARE
+const owedKind = o => String(o.note || '').startsWith('R171') ? 'FARE' : o.cost_code
+const staffKinds = () => new Set([...(feed.allowances || ['MEAL_SUPPER', 'MEAL_BREAKFAST', 'TRANSPORT_EARLY_START']), 'FARE'])
+const owedStaff = () => { const allow = staffKinds(); return (feed.owed || []).filter(o => allow.has(owedKind(o))) }
+function owedGroups() { const g = new Map(); for (const o of feed.owed || []) { const k = `${o.machine_code}|${o.day_date}|${owedKind(o)}`; if (!g.has(k)) g.set(k, []); g.get(k).push(o) } return g }
 function owedHtml() {
   const rows = feed.owed || []; if (!rows.length) return ''
-  const kinds = feed.kinds || {}, allow = new Set(feed.allowances || ['MEAL_SUPPER', 'MEAL_BREAKFAST', 'TRANSPORT_EARLY_START'])
+  const kinds = { FARE: 'Fare between sites', ...(feed.kinds || {}) }, allow = staffKinds()
   // "only supper, breakfast and early start transport are allowances paid to staff. the others are works carried out BY the staff that
   // we had to pay for" (R129): two lists — what the men are owed, and the works the registers say were paid for
   const part = (title, pick) => { const gs = [...owedGroups().entries()].filter(([k]) => pick(k.split('|')[2])); const total = gs.reduce((a, [, os]) => a + os.reduce((x, o) => x + Number(o.amount_ksh), 0), 0); return gs.length ? `<div class="group"><span>${title}</span><span>KES ${kes(total)}</span></div>` + gs.map(group).join('') : '' }
   const group = ([k, os]) => {
     const [m, d, c] = k.split('|'), sum = os.reduce((a, o) => a + Number(o.amount_ksh), 0), n = os.filter(o => owedSel.has(o.id)).length
-    const was = [...new Set(os.filter(o => o.stated_code !== c).map(o => kinds[o.stated_code] || o.stated_code))]
+    const was = [...new Set(os.filter(o => o.stated_code !== o.cost_code).map(o => kinds[o.stated_code] || o.stated_code))]
     return `<section class="item"><div class="meta"><span class="chip need"><span class="dot"></span>Owed</span><span>${esc(m)} · ${dayName(d)}</span></div>
       <div class="what">${esc(kinds[c] || c)} — ${os.length} ${os.length === 1 ? 'man' : 'men'} · KES ${kes(sum)}</div>
       ${was.length ? `<div class="was">the register says ${esc(was.join(', ').toLowerCase())}; changed by you</div>` : ''}
