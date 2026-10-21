@@ -739,28 +739,28 @@ function markedHtml() {
 // day (today unless he picks), KES each (200 unless he says) → Save. Today's promises with Undo; a promise no register names by the next
 // morning is shown. Then the lines HELD for his tap: R174 (a Day 0 — his question, with how long the shift ran) and R176 (not promised).
 const PROMISE_KINDS = { MEAL_SUPPER: 'Supper', MEAL_BREAKFAST: 'Breakfast', TRANSPORT_EARLY_START: 'Early start', FARE: 'Fare between sites' }
-const promising = { machines: new Set(), kinds: new Set(), day: null, ksh: 200 }
 const heldKind = o => o.cost_code === 'TRANSPORT_BETWEEN_SITES' ? 'FARE' : o.cost_code
 function heldGroups() { const g = new Map(); for (const o of feed.owed_held || []) { const k = `${o.machine_code}|${o.day_date}|${heldKind(o)}|${String(o.note || '').slice(0, 4)}`; if (!g.has(k)) g.set(k, []); g.get(k).push(o) } return g }
+// W77 (R176 amended, the owner, 22 Oct 2026: "where exactly? can't it just go through the assistant?"): the promise is SAID to the assistant
+// ("I told Brian Okoth to put supper for his team tonight") — this list only shows what was promised: who was told (or which machine's
+// team), the allowance, the day, with Undo. A promise no register names by the next morning is shown apart.
+const promisedTo = p => p.staff_name ? titleName(p.staff_name) + ' (told)' : `${p.machine_code}'s team`
+const titleName = s => String(s || '').toLowerCase().split(/\s+/).slice(0, 2).map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
 function promiseHtml() {
-  const days = lastDays(), today = days[0].iso, tomorrow = new Date(new Date(today + 'T12:00:00Z').getTime() + 864e5).toISOString().slice(0, 10)
-  const day = promising.day || today
-  const dayPicks = [[today, 'Today'], [days[1].iso, 'Yesterday'], [tomorrow, 'Tomorrow']]
-  const ms = feed.machines || ['A', 'A2', 'A3', 'A4', 'A5', 'S', 'TRK']
-  const ready = promising.machines.size && promising.kinds.size && promising.ksh > 0
-  const todays = (feed.promises || []).filter(p => p.day_date === today || new Date(p.created_at).toLocaleDateString('en-CA', { timeZone: 'Africa/Nairobi' }) === today)
+  const today = lastDays()[0].iso
+  const unwritten = new Set((feed.promised_unwritten || []).map(p => p.id))
+  // today's and the days ahead, then the last week's (newest day first); the unwritten ones are shown below, apart
+  const ps = (feed.promises || []).filter(p => !unwritten.has(p.id)).slice().sort((a, b) => (a.day_date < b.day_date ? 1 : a.day_date > b.day_date ? -1 : b.id - a.id)).slice(0, 30)
   const kn = k => (PROMISE_KINDS[k] || k).toLowerCase()
-  return `<div class="group"><span>Allowances promised</span><span>${todays.length || ''}</span></div>
-    <section class="item"><div class="label" style="margin-top:0">Machine</div><div class="picks">${ms.map(m => `<button class="pick" data-prom-m="${esc(m)}" aria-pressed="${promising.machines.has(m)}">${esc(m)}</button>`).join('')}</div>
-      <div class="label">Allowance</div><div class="picks">${Object.entries(PROMISE_KINDS).map(([k, v]) => `<button class="pick" data-prom-k="${k}" aria-pressed="${promising.kinds.has(k)}">${v}</button>`).join('')}</div>
-      <div class="label">Day</div><div class="picks">${dayPicks.map(([iso, l]) => `<button class="pick" data-prom-d="${iso}" aria-pressed="${iso === day}">${l}</button>`).join('')}</div>
-      <div class="label">KES each</div><input type="number" inputmode="numeric" min="1" max="2000" step="50" data-prom-ksh value="${promising.ksh || ''}" aria-label="KES each" style="max-width:140px">
-      <div class="acts"><button class="act" data-prom-save ${ready ? '' : 'disabled'}>Save the promise</button></div></section>`
-    + todays.map(p => `<section class="item solved open"><div class="meta"><span class="chip done">Promised</span><span>${esc(p.machine_code)} · ${dayName(p.day_date)}</span></div>
-      <div class="what">${esc(PROMISE_KINDS[p.kind] || p.kind)} · KES ${kes(p.ksh_each)} each</div>
+  const said = p => p.his_words ? `<div class="was">“${esc(p.his_words)}”</div>` : ''
+  return `<div class="group"><span>Allowances promised</span><span>${ps.filter(p => p.day_date >= today).length || ''}</span></div>
+    <section class="item"><p class="why" style="margin:0">Tell the assistant which man you told — “I told Brian Okoth to put supper for his team tonight”. It covers the ending register he sends that day. “Undo that promise” takes it back.</p>
+      <div class="acts"><button class="act quiet" data-d="ask">Open the assistant</button></div></section>`
+    + ps.map(p => `<section class="item solved open"><div class="meta"><span class="chip done">Promised</span><span>${esc(promisedTo(p))} · ${dayName(p.day_date)}</span></div>
+      <div class="what">${esc(PROMISE_KINDS[p.kind] || p.kind)} · KES ${kes(p.ksh_each)} each</div>${said(p)}
       <div class="acts"><button class="act quiet" data-prom-undo="${p.id}">Undo</button></div></section>`).join('')
-    + (feed.promised_unwritten || []).map(p => `<section class="item"><div class="meta"><span class="chip need"><span class="dot"></span>Promised</span><span>${esc(p.machine_code)} · ${dayName(p.day_date)}</span></div>
-      <div class="what">Promised to ${esc(p.machine_code)} (${esc(kn(p.kind))}, ${dayName(p.day_date)}) — the register names no one</div>
+    + (feed.promised_unwritten || []).map(p => `<section class="item"><div class="meta"><span class="chip need"><span class="dot"></span>Promised</span><span>${esc(promisedTo(p))} · ${dayName(p.day_date)}</span></div>
+      <div class="what">Promised to ${esc(promisedTo(p))} (${esc(kn(p.kind))}, ${dayName(p.day_date)}) — ${p.to_man ? 'no ending register of his states it' : 'the register names no one'}</div>
       <div class="acts"><button class="act quiet" data-prom-undo="${p.id}">Take back the promise</button></div></section>`).join('')
 }
 function heldHtml() {
@@ -870,6 +870,9 @@ function truckHtml() {
   const ksh = n => n == null ? '—' : 'KES ' + kes(n)
   const reg = (r, w) => r ? `<span class="chip done">✓ ${w} ${esc(r.at)}${r.late ? ` · sent ${esc(dayName(r.sent_on))}` : ''}</span>` : `<span class="chip">– ${w}</span>`
   const trips = t.trips.length ? `<ul class="tlist">${t.trips.map(x => `<li><span class="code" style="color:${MC[x.machine] || 'var(--ink)'}">${esc(x.machine || x.machine_raw || '?')}</span><span>${esc(x.from)} → ${esc(x.to)}<small>${esc(x.man || x.man_raw || '?')}${x.man && x.man_raw && x.man.toLowerCase() !== x.man_raw.toLowerCase() ? ` · written «${esc(x.man_raw)}»` : ''}</small></span></li>`).join('')}</ul>` : `<p class="why">No trips written.</p>`
+  // W77: what the truck DID as you told the assistant (the lean card's DID) — one line each, its kind, Undo; nothing inferred (R128)
+  const did = (t.did || []).length ? `<ul class="tlist">${t.did.map((l, i) => `<li><span class="code">${i + 1})</span><span>${esc(l.kind)}: ${esc(l.text)}${l.shift === 'night' ? '<small>night</small>' : ''}</span><button class="act quiet" data-truck-undo="${l.id}" aria-label="Take back this line">Undo</button></li>`).join('')}</ul>`
+    : `<p class="why">Nothing said yet — tell the assistant: “TRK today: took A3 from … to …, then kit to A5”.</p>`
   const fuel = t.fuel.length ? `<ul class="tlist">${t.fuel.map(f => `<li class="lone"><span><b>${f.litres ?? '?'} L</b> for <b>${ksh(f.ksh)}</b>${f.note ? `<small>${esc(f.note)}</small>` : ''}</span></li>`).join('')}</ul>` : `<p class="why">No fuel on the ending register.</p>`
   const filed = (t.filed || []).length ? `<p class="why">Filed by you: ${t.filed.map(c => `${ksh(c.amount)}${c.receipt ? ` (${esc(c.receipt)})` : ''}`).join(' · ')}</p>` : ''
   // a photo whose small copy is kept is shown (as the gauges are, W51); one not kept yet is described in the photo reading's words
@@ -882,7 +885,8 @@ function truckHtml() {
   <section class="item"><div class="tnav"><button class="act quiet" data-truckday="${prev || ''}" ${prev ? '' : 'disabled'} aria-label="The truck day before">‹ ${prev ? esc(dayName(prev)) : ''}</button><b class="who">${esc(dayName(t.date))}</b><button class="act quiet" data-truckday="${next || ''}" ${next ? '' : 'disabled'} aria-label="The truck day after">${next ? esc(dayName(next)) : ''} ›</button></div>
     <div class="steps">${reg(t.registers.sr, 'Start')}${reg(t.registers.er, 'End')}${t.area ? `<span class="chip">area as written: ${esc(t.area)}</span>` : ''}${t.plate ? `<span class="chip">plate ${esc(t.plate.written)}${t.plate.agrees || !t.plate.registry ? '' : ` · registry ${esc(t.plate.registry)}`}</span>` : ''}</div>
     <div class="tsub"><span>Men</span><span>${t.men.length}</span></div>${t.men.length ? `<div class="facts">${t.men.map(m => `<span><b>${esc(m.name)}</b> ${m.sr && m.er ? 'start · end' : m.sr ? 'start only' : 'end only'}${m.on_list ? '' : ' · not on the staff list'}</span>`).join('')}</div>` : `<p class="why">No one on its registers.</p>`}
-    <div class="tsub"><span>Trips</span><span>${t.trips.length}</span></div>${trips}
+    <div class="tsub"><span>Did · your words</span><span>${(t.did || []).length || ''}</span></div>${did}
+    <div class="tsub"><span>Trips · Joseph's register</span><span>${t.trips.length}</span></div>${trips}
     <div class="tsub"><span>Fuel</span><span>${(t.photos || []).length ? `${t.photos.length} photo${t.photos.length === 1 ? '' : 's'}` : ''}</span></div>${fuel}${filed}${photos}${(t.other_photos || []).length ? `<p class="why">${t.other_photos.length} other photo${t.other_photos.length === 1 ? '' : 's'} that day — not of fuel</p>` : ''}
     ${(t.other_costs || []).length ? `<div class="tsub"><span>Other costs</span></div><p class="why">${t.other_costs.map(c => `${esc(c.label)}: ${esc(c.man || '?')} ${ksh(c.ksh)}`).join(' · ')}</p>` : ''}
     <div class="tsub"><span>Kit · the COUNT</span></div>${kit}${change}
@@ -1435,7 +1439,7 @@ function focusMsg(id) { dept = 'all'; filters.all = 'all'; render(); const el = 
 const ASK_ICON = '<path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/>'
 const asking = { list: [], mac: null, mine: new Set(), spoken: new Set(), timer: null, rec: null, chunks: [], t0: 0, mime: '', loaded: false, sending: false, voice: true }
 const askWaiting = () => asking.list.filter(q => q.status === 'queued' || q.status === 'working').length
-const ASK_TRY = ["What's A3 doing today?", "Who's still owed supper?", "What's waiting for me?", "Give A3's team 500 each for yesterday, they finished late", 'Benson apewe 500 ya jana', "Pay Isaiah's team standard for 15 Oct day, 1.5 for the night"]
+const ASK_TRY = ["What's A3 doing today?", "Who's still owed supper?", "What's waiting for me?", "Give A3's team 500 each for yesterday, they finished late", 'Benson apewe 500 ya jana', "Pay Isaiah's team standard for 15 Oct day, 1.5 for the night", 'I told Brian Okoth to put supper for his team tonight', 'Undo that promise', 'TRK today: took A3 from Golden Mansion to Cale, then kit to A5']
 async function loadAsk() {
   const { status, data } = await api('assistant').catch(() => ({ status: 0, data: {} }))
   if (status === 403) { store.token = null; return start() }
@@ -1484,6 +1488,11 @@ async function askSend(body) {
 }
 const facts = f => { const xs = Object.entries(f || {}).filter(([k, v]) => v != null && v !== '' && typeof v !== 'object' && k !== 'words'); return xs.length ? `<dl class="facts">${xs.map(([k, v]) => `<dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${esc(typeof v === 'number' ? Number(v).toLocaleString('en-US', { maximumFractionDigits: 2 }) : v)}</dd>`).join('')}</dl>` : '' }
 const rowsOf = rs => Array.isArray(rs) && rs.length && typeof rs[0] === 'object' ? `<div class="rowsx">${rs.slice(0, 12).map(r => `<div>${Object.entries(r).filter(([, v]) => v != null && typeof v !== 'object').slice(0, 4).map(([k, v], i) => i ? `<span> · ${esc(v)}</span>` : esc(v)).join('')}</div>`).join('')}${rs.length > 12 ? `<span>… and ${rs.length - 12} more</span>` : ''}</div>` : ''
+// the prepared actions a tap confirms: [what the card says once done, once undone] — and the bot's action for the tap
+const ASK_ACTS = { pay_award: ['In their pay', 'Undone — not in their pay'], assign_shift: ['In their pay', 'Undone — not in their pay'],
+  allowance_promise: ['Promised', 'Undone — not promised'], allowance_promise_void: ['Taken back', 'Your Undo was withdrawn — say the promise again'],
+  truck_lines: ["On the truck's day", "Undone — not on the truck's day"] }
+const ASK_SEND = { allowance_promise: 'allowance_promise', allowance_promise_void: 'allowance_promise', truck_lines: 'truck_lines', assign_shift: 'assign_shift', pay_award: 'pay_award' }
 function qaCard(q) {
   const asked = q.heard || q.text || (q.audio_mime ? '🎤 Your voice' : '…')
   const mac = asking.mac || {}
@@ -1494,10 +1503,12 @@ function qaCard(q) {
   else {
     const a = q.answer || {}, act = a.action
     let acts = ''
-    if (act && (act.kind === 'pay_award' || act.kind === 'assign_shift')) {
-      acts = q.action_state === 'confirmed' ? `<div class="acts"><span class="chip done">✓ In their pay</span>${q.action_outbox_id ? `<button class="act quiet" data-askundo="${q.action_outbox_id}">Undo</button>` : ''}</div>`
-        : q.action_state === 'undone' ? `<div class="acts"><span class="chip">Undone — not in their pay</span></div>`
-        : `<div class="acts"><button class="act yes" data-askact="${q.id}">${esc(act.label || 'Confirm')}</button><span class="why">nothing is written until you tap</span></div>`
+    if (act && ASK_ACTS[act.kind]) {
+      // W77: a promise (R176) and the truck's lines are prepared the same way as an award — his tap keeps them; Undo = Reopen
+      const [done, undone] = ASK_ACTS[act.kind]
+      acts = q.action_state === 'confirmed' ? `<div class="acts"><span class="chip done">✓ ${done}</span>${q.action_outbox_id && act.kind !== 'allowance_promise_void' ? `<button class="act quiet" data-askundo="${q.action_outbox_id}">Undo</button>` : ''}</div>`
+        : q.action_state === 'undone' ? `<div class="acts"><span class="chip">${undone}</span></div>`
+        : `<div class="acts"><button class="act yes" data-askact="${q.id}">${esc(act.label || 'Confirm')}</button><span class="why">nothing is ${act.kind === 'pay_award' || act.kind === 'assign_shift' ? 'written' : 'kept'} until you tap</span></div>`
     } else if (act && act.kind === 'plan_job') acts = `<div class="acts"><button class="act yes" data-askplan="${esc((act.draft && act.draft.day) || '')}">${esc(act.label || 'Plan')}</button></div>`
     body = `<p class="ans">${esc(a.text || '')}</p>${facts(a.facts)}${rowsOf(a.rows)}${acts}${a.text ? `<div class="acts"><button class="act quiet" data-asksay="${q.id}">🔊 Say it</button></div>` : ''}`
   }
@@ -1615,8 +1626,6 @@ async function say(body, quiet) {
     if (!quiet) toast(data.reply || '✓'); await load(); return true
   } catch { toast('No connection — try again.'); return false } finally { busy = false }
 }
-// W73: the KES each of a promise, kept as he types (a re-render never loses it)
-document.addEventListener('input', e => { if (e.target?.dataset && 'promKsh' in e.target.dataset) promising.ksh = Number(e.target.value) || 0 })
 document.addEventListener('click', async e => {
   const b = e.target.closest('button'), art = e.target.closest('.item.solved')
   if (b?.dataset.d) { dept = b.dataset.d; scroller.scrollTop = 0; render(); if (dept === 'jobs') loadCal(); if (dept === 'ask') loadAsk(); return }
@@ -1624,7 +1633,7 @@ document.addEventListener('click', async e => {
   if (b?.dataset.asksay) { unlockVoice(); const q = asking.list.find(x => String(x.id) === b.dataset.asksay); if (q) speakIt(q.answer); return }
   // his tap on a prepared award: the bot files it through app_pay_adjustment_write; Undo = Reopen on the Solved row it makes (W18)
   // … and his tap on a prepared assignment of shifts (R169): app_assign_shift through the same answer path; Undo the same way
-  if (b?.dataset.askact) { b.disabled = true; const q = asking.list.find(x => String(x.id) === b.dataset.askact); const kind = q?.answer?.action?.kind === 'assign_shift' ? 'assign_shift' : 'pay_award'; const ok = await say({ action: kind, question: Number(b.dataset.askact) }); if (ok && q) { q.action_state = 'confirmed'; loadAsk() } else b.disabled = false; return }
+  if (b?.dataset.askact) { b.disabled = true; const q = asking.list.find(x => String(x.id) === b.dataset.askact); const kind = ASK_SEND[q?.answer?.action?.kind] || 'pay_award'; const ok = await say({ action: kind, question: Number(b.dataset.askact) }); if (ok && q) { q.action_state = 'confirmed'; loadAsk() } else b.disabled = false; return }
   if (b && 'assign' in b.dataset) return openAssign()
   if (b?.dataset.askundo) { b.disabled = true; const ok = await say({ action: 'reopen', id: Number(b.dataset.askundo), item: 0 }); if (ok) loadAsk(); else b.disabled = false; return }
   if (b && 'askplan' in b.dataset) { dept = 'jobs'; render(); loadCal().then(() => openPlan(b.dataset.askplan || (cal && cal.today))); return }
@@ -1653,16 +1662,8 @@ document.addEventListener('click', async e => {
     return
   }
   if (b?.dataset.owedundo) { b.disabled = true; await say({ action: 'owed_undo', ids: b.dataset.owedundo.split(',').map(Number) }); return }
-  // W73: his promises (R176) and the held lines (R174 / R176)
-  if (b?.dataset.promM) { const s = promising.machines, v = b.dataset.promM; s.has(v) ? s.delete(v) : s.add(v); return render() }
-  if (b?.dataset.promK) { const s = promising.kinds, v = b.dataset.promK; s.has(v) ? s.delete(v) : s.add(v); return render() }
-  if (b?.dataset.promD) { promising.day = b.dataset.promD; return render() }
-  if (b && 'promSave' in b.dataset) {
-    b.disabled = true
-    const ok = await say({ action: 'allowance_promise', op: 'add', machines: [...promising.machines], kinds: [...promising.kinds], day: promising.day || lastDays()[0].iso, ksh: promising.ksh || 200 })
-    if (ok) { promising.machines.clear(); promising.kinds.clear(); promising.day = null; promising.ksh = 200; render() } else b.disabled = false
-    return
-  }
+  // W73/W77: his promises (R176 — said to the assistant; Undo here) and the held lines (R174 / R176)
+  if (b?.dataset.truckUndo) { b.disabled = true; const ok = await say({ action: 'truck_lines', op: 'void', ids: [Number(b.dataset.truckUndo)] }); if (ok) loadTruck(truck.day); else b.disabled = false; return }
   if (b?.dataset.promUndo) { b.disabled = true; await say({ action: 'allowance_promise', op: 'void', ids: [Number(b.dataset.promUndo)] }); return }
   if (b?.dataset.heldact) {
     const os = heldGroups().get(b.dataset.g) || [], picked = os.filter(o => owedSel.has(o.id)), ids = (picked.length ? picked : os).map(o => o.id)
