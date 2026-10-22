@@ -100,6 +100,7 @@
   .chip.need { background: var(--warn-bg); color: var(--warn); }
   .chip.done { background: var(--ok-bg); color: var(--primary-ink); }
   .chip.info { background: var(--info-bg); color: var(--info); }
+  .chip.line { background: rgba(167, 139, 250, .16); color: #c4b5fd; }   /* another of his M-Pesa lines (W91) */
   .dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
   .what { color: var(--ink); font-weight: 600; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
   .more { margin-top: 3px; color: var(--strong); white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -165,6 +166,7 @@
   .gauge .lab { position: absolute; top: 20px; transform: translateX(-50%); font-size: 11.5px; color: var(--body); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .facts { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13.5px; color: var(--strong); }
   .facts b { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .facts .on-line { color: #c4b5fd; }   /* another of his M-Pesa lines (W91) */
 
   /* money totals */
   .totals { display: grid; grid-template-columns: 1.2fr 1fr 1fr; gap: 10px; }
@@ -573,7 +575,7 @@ function brief() {
   if (dept === 'all') { const parts = Object.keys(DEPTS).filter(k => k !== 'all').map(k => [DEPTS[k].tab, todo(k).length]).filter(x => x[1]); return n ? `<b>${n} thing${n === 1 ? '' : 's'} need${n === 1 ? 's' : ''} you</b> — ${parts.map(([t, c]) => `${t} ${c}`).join(' · ')}.${w ? ` ${w} being investigated.` : ''}` : `<b>Nothing needs you.</b>${w ? ` ${w} being investigated.` : ''}` }
   if (dept === 'machines') { const ms = b.machines || [], m3 = ms.reduce((a, m) => a + Number(m.m3 || 0), 0), quiet = ms.filter(m => m.quiet_min); return `<b>${ms.length} machine${ms.length === 1 ? '' : 's'} out, ${Math.round(m3 * 10) / 10} m³ so far.</b> ${ms.filter(m => m.er).length} closed their day.${quiet.length ? ` Quiet: ${quiet.map(m => m.code).join(', ')}.` : ''}${tail}` }
   if (dept === 'fuel') { const fs = b.fuel || [], rf = fs.reduce((a, f) => a + f.refuels, 0); return `<b>${fs.length} gauge${fs.length === 1 ? '' : 's'} read today, ${rf} refuel${rf === 1 ? '' : 's'}.</b>${tail}` }
-  if (dept === 'money') { const m = b.money || {}; return `<b>KES ${kes(m.out)} out today in ${m.n_out || 0} payment${m.n_out === 1 ? '' : 's'}.</b> KES ${kes(m.proven)} proven by your own word.${m.gaps ? ` ${m.gaps} text${m.gaps === 1 ? '' : 's'} never reached me.` : ''}${owedStaff().length ? ` KES ${kes(owedStaff().reduce((a, o) => a + Number(o.amount_ksh), 0))} owed to staff.` : ''}${tail}` }
+  if (dept === 'money') { const m = b.money || {}; return `<b>KES ${kes(m.out)} out today in ${m.n_out || 0} payment${m.n_out === 1 ? '' : 's'}.</b> KES ${kes(m.proven)} proven by your own word.${m.gaps ? ` ${m.gaps} text${m.gaps === 1 ? '' : 's'} never reached me.` : ''}${(m.lines || []).map(l => ` Of it, KES ${kes(l.out)} from ${esc(l.on || 'your ' + l.word)}.`).join('')}${owedStaff().length ? ` KES ${kes(owedStaff().reduce((a, o) => a + Number(o.amount_ksh), 0))} owed to staff.` : ''}${tail}` }
   if (dept === 'business') return `<b>Other business</b> — spending that belongs to no machine: KES ${kes((b.money || {}).business)} today.${tail}`
   if (dept === 'personal') return `<b>Other personal</b> — kept off the business books: KES ${kes((b.money || {}).personal)} today.${tail}`
   return `<b>Kit</b> — transfers, items, what stands at the sites.${invOpenCount() ? ` ${invOpenCount()} investigation${invOpenCount() === 1 ? '' : 's'} open.` : ''}${tail}`
@@ -635,11 +637,15 @@ function buttonsOf(t) {
   if (t.answer && !t.needs && !t.buttons) h += `<button class="act quiet" data-reopen="${t.key}">Undo my answer</button>`
   return h + `<button class="act quiet" data-share="${t.r.id}">Forward</button>`
 }
+// HIS M-PESA LINES (W91 · R184): a payment (or a gap) on another of his lines says so — the feed's `line`, else the message's own
+const lineWord = l => !l || l === 'main' ? 'main line' : l === 'other' ? 'another line' : /^…\d{3}$/.test(l) ? 'line ' + l : l + ' line'
+const offLine = r => { const l = r && r.purpose === 'mpesa' ? (r.line ?? (r.data && r.data.line) ?? null) : null; return l && l !== 'main' ? l : null }
 function card(t) {
-  const chip = !t.needs ? `<span class="chip info">${KIND[t.r.purpose] || esc(t.r.purpose)}</span>` : t.solved ? '<span class="chip done">✓ Solved</span>' : t.asked ? `<span class="chip info">Investigating</span>${t.replied ? '<span class="chip need"><span class="dot"></span>He replied</span>' : ''}` : '<span class="chip need"><span class="dot"></span>Needs you</span>'
+  const ln = offLine(t.r), lineChip = ln ? `<span class="chip line">${esc(lineWord(ln))}</span>` : ''
+  const chip =!t.needs ? `<span class="chip info">${KIND[t.r.purpose] || esc(t.r.purpose)}</span>` : t.solved ? '<span class="chip done">✓ Solved</span>' : t.asked ? `<span class="chip info">Investigating</span>${t.replied ? '<span class="chip need"><span class="dot"></span>He replied</span>' : ''}` : '<span class="chip need"><span class="dot"></span>Needs you</span>'
   const d = dept === 'all' && t.dept ? `<span class="chip">${DEPTS[t.dept]?.tab || esc(t.dept)}</span>` : ''
   return `<article class="item ${t.needs && t.solved ? 'solved' : ''} ${opened.has(t.key) ? 'open' : ''}" data-key="${t.key}" id="m${t.r.id}-${t.item}">
-    <div class="meta">${chip}${d}${t.head ? `<span>${esc(t.head)}</span>` : ''}<span>${dated(t.at)}</span></div>
+    <div class="meta">${chip}${lineChip}${d}${t.head ? `<span>${esc(t.head)}</span>` : ''}<span>${dated(t.at)}</span></div>
     <div class="what">${esc(t.what)}</div>
     ${t.answer ? `<div class="answer">${esc(t.answer.text)}</div>` : ''}${t.was ? `<div class="was">was: ${esc(t.was)}</div>` : ''}
     ${t.more ? `<div class="more">${esc(t.more)}</div>` : ''}${photosHtml(t)}${threadHtml(t)}
@@ -780,7 +786,7 @@ function boards(f) {
   // the Engine hours, at the TOP of Machines (the owner, 9 Oct 2026: "what section? i can't see a section for engine hours?" — it sat at the very bottom, under every open thing)
   if (dept === 'machines' && showsBoards(f)) return engineHtml(b.engines || [])
   if (dept === 'kit' && showsBoards(f)) return invHtml()   // the investigations (W74), at the top of Kit
-  if (dept === 'money' && showsBoards(f) && b.money) { const m = b.money; return `<section class="item"><div class="totals"><div><div class="k">Out today</div><div class="v">${kes(m.out)}</div></div><div><div class="k">Proven</div><div class="v">${kes(m.proven)}</div></div><div><div class="k">No purpose yet</div><div class="v">${kes(m.waiting)}</div></div></div><div class="facts"><span>in <b>${kes(m.in)}</b></span><span>other business <b>${kes(m.business)}</b></span><span>personal <b>${kes(m.personal)}</b></span>${m.explained ? `<span>in your words <b>${kes(m.explained)}</b></span>` : ''}${m.gaps ? `<span>texts missing <b>${m.gaps}</b></span>` : ''}</div></section>` }
+  if (dept === 'money' && showsBoards(f) && b.money) { const m = b.money; return `<section class="item"><div class="totals"><div><div class="k">Out today</div><div class="v">${kes(m.out)}</div></div><div><div class="k">Proven</div><div class="v">${kes(m.proven)}</div></div><div><div class="k">No purpose yet</div><div class="v">${kes(m.waiting)}</div></div></div><div class="facts"><span>in <b>${kes(m.in)}</b></span><span>other business <b>${kes(m.business)}</b></span><span>personal <b>${kes(m.personal)}</b></span>${m.explained ? `<span>in your words <b>${kes(m.explained)}</b></span>` : ''}${m.gaps ? `<span>texts missing <b>${m.gaps}</b></span>` : ''}${(m.lines || []).map(l => `<span class="on-line">${esc(l.word)}: out <b>${kes(l.out)}</b> (${l.n_out})${l.waiting ? ` · no purpose yet <b>${kes(l.waiting)}</b>` : ''}${l.in ? ` · in <b>${kes(l.in)}</b>` : ''}${l.gaps ? ` · missing <b>${l.gaps}</b>` : ''}</span>`).join('')}</div></section>` }
   return ''
 }
 // THE ENGINE HOURS (the owner, 9 Oct 2026: "maybe a new engine hours section in the bot app"): each machine's latest engine reading — S's is
