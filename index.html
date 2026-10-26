@@ -533,8 +533,8 @@ function derive() {
 // actually, also a filter for item/issue/report type"): what a thing is about — its machine, the men named in it, the planned job
 // on that machine-day, and its kind — and the four facets he can set, in any mix
 const facet = { machine: null, who: null, job: null, kind: null }
-const KIND_OF_CODE = [['ENGINE', 'Engine hours'], ['S_ENGINE', 'Engine hours'], ['PLATE', 'Plates'], ['CUMULATIVE', 'Totals'], ['VOLUME', 'Totals'], ['MIXER', 'Totals'], ['STAFF', 'ID numbers'], ['PAYEE', 'ID numbers'], ['EQUIPMENT', 'Kit'], ['TRANSFER', 'Kit'], ['SITE_STOCK', 'Kit'], ['REGISTER', 'Registers'], ['TRUCK', 'Truck lines'], ['NO_PLANNED', 'Planned jobs'], ['FUEL', 'Fuel']]
-const KIND_OF_MARK = { '⏱': 'Engine hours', '🚨': 'Engine hours', '⛽': 'Fuel', '🧱': 'Kit', '💬': 'Private answers', '🗑': 'Deleted messages', '📥': 'Received', '🧾': 'Payments', '💸': 'Payments', '🧭': 'Planned jobs', '📝': 'Registers' }
+const KIND_OF_CODE = [['MESSAGE_', 'Edited and deleted messages'], ['ENGINE', 'Engine hours'], ['S_ENGINE', 'Engine hours'], ['PLATE', 'Plates'], ['CUMULATIVE', 'Totals'], ['VOLUME', 'Totals'], ['MIXER', 'Totals'], ['STAFF', 'ID numbers'], ['PAYEE', 'ID numbers'], ['EQUIPMENT', 'Kit'], ['TRANSFER', 'Kit'], ['SITE_STOCK', 'Kit'], ['REGISTER', 'Registers'], ['TRUCK', 'Truck lines'], ['NO_PLANNED', 'Planned jobs'], ['FUEL', 'Fuel']]
+const KIND_OF_MARK = { '⏱': 'Engine hours', '🚨': 'Engine hours', '⛽': 'Fuel', '🧱': 'Kit', '💬': 'Private answers', '🗑': 'Edited and deleted messages', '✏️': 'Edited and deleted messages', '📥': 'Received', '🧾': 'Payments', '💸': 'Payments', '🧭': 'Planned jobs', '📝': 'Registers' }
 function kindOf(t) {
   const fp = t.buttons && t.buttons[0] && t.buttons[0].fp
   if (fp) { const code = String(fp).split('|')[0]; const hit = KIND_OF_CODE.find(([k]) => code.startsWith(k)); return hit ? hit[1] : code.toLowerCase().replace(/_/g, ' ') }
