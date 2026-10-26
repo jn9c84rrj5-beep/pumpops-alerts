@@ -795,8 +795,20 @@ function engineHtml(es) {
   if (!es.length) return ''
   const n1 = v => Number(v).toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
   const due = (k, x) => x.togo == null ? `<span class="chip">${k} — no reading</span>` : `<span class="chip ${x.color === 'red' ? 'need' : x.color === 'green' ? 'done' : 'need'}">${x.color === 'red' ? '<span class="dot"></span>' : ''}${k} ${x.togo < 0 ? `overdue ${n1(-x.togo)} h` : `in ${n1(x.togo)} h`} · at ${n1(x.next)}</span>`
-  return `<div class="group"><span>Engine hours</span><span>service: engine 250 h · hydraulic 1,000 h</span></div>` + es.map(e => `<section class="item"><div class="mach"><div class="code">${esc(e.code)}</div><div><div class="who">${e.hours == null ? 'no reading yet' : `${n1(e.hours)} h${e.estimated ? ' <small>(estimated — meter broken)</small>' : ''}`}</div><div class="where">${e.at ? (e.estimated ? 'after ' : 'read ') + dayName(e.at) : ''}${e.engine.last ? ` · last engine service ${dayName(e.engine.last)}` : ''}</div></div>
-    <div class="steps">${due('Engine service', e.engine)}${due('Hydraulic service', e.hydraulic)}</div></div></section>`).join('')
+  return `<div class="group"><span>Engine hours</span><span>service: engine 250 h · hydraulic 1,000 h</span></div>` + es.map(e => `<section class="item"><div class="mach"><div class="code">${esc(e.code)}</div><div><div class="who">${e.hours == null ? 'no reading yet' : `${n1(e.hours)} h${e.estimated ? ' <small>(estimated — meter broken)</small>' : ''}`}</div><div class="where">${e.at ? (e.estimated ? 'after ' : 'read ') + dayName(e.at) : ''}${e.engine.last ? ` · last engine service ${dayName(e.engine.last)}` : ''}${e.check && e.check.ratio ? ` · its ratio ${e.check.ratio.ratio}` : ''}</div></div>
+    <div class="steps">${due('Engine service', e.engine)}${due('Hydraulic service', e.hydraulic)}</div></div>${checkHtml(e.check)}</section>`).join('')
+}
+// THE ENGINE-HOURS CHECK, LIVE (the owner, 26 Oct 2026: "yes turn on the engine hours check in the bot"): each odd step of the meter
+// since the check went on — a slip (a figure written wrong, said with what it should have been), something more (the engine ran more
+// than the work, or the meter went back and stayed), or waiting for the next reading. The same lines show on /live (lib/live/Board.js)
+const CHECK_WORD = { SLIP: 'slip', MORE: 'something more', UNCLEAR: 'unclear' }
+function checkHtml(c) {
+  if (!c || !(c.items || []).length) return ''
+  return c.items.map(i => {
+    const word = i.tell ? CHECK_WORD[i.kind] || i.kind : 'waiting'
+    const cls = i.kind === 'SLIP' ? 'info' : i.tell === 'alarm' ? 'need' : i.tell ? 'need' : ''
+    return `<div class="was"><span class="chip ${cls}">${i.tell === 'alarm' ? '<span class="dot"></span>' : ''}${esc(word)}</span> ${esc(dayName(i.d))} · ${esc(String(i.line || '').replace(/^(slip|something more|unclear(?: \(truck times\))?) · /, ''))}</div>`
+  }).join('')
 }
 // ══ INVESTIGATIONS (W74; the owner, 22 Oct 2026: "i think we need a ledger to track these investigations") ═════════════════════════
 // Open first: the title, the machine, the day it was opened and his last note. A tap opens it: what is missing, the evidence, his notes,
