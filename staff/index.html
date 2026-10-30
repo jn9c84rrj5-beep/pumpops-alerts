@@ -48,6 +48,7 @@
   .empty { padding: 30px 14px; text-align: center; color: var(--body); }
   .note { background: var(--card); border: 1px solid var(--edge); border-radius: 12px; padding: 12px 14px; font-size: 15px; color: var(--body); margin-bottom: 14px; }
   .gap { margin-top: 10px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 </style>
 </head>
 <body>
@@ -95,7 +96,7 @@ function showSignin(msg = '') {
     return
   }
   $.innerHTML = `<h1>Questions</h1><p class="sub">Type the code from your message.</p>
-    <form id="f"><label for="c" class="note" style="display:block">Your code</label><input id="c" value="${esc(code)}" autocomplete="off" autocapitalize="characters" spellcheck="false"><div class="err" role="alert">${esc(msg)}</div><button>Sign in</button></form>`
+    <form id="f"><label for="c" class="sr">Your code</label><input id="c" value="${esc(code)}" autocomplete="off" autocapitalize="characters" spellcheck="false"><div class="err" role="alert">${esc(msg)}</div><button>Sign in</button></form>`
   document.getElementById('f').onsubmit = async e => {
     e.preventDefault()
     try {
