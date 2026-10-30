@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Questions</title>
+<meta name="theme-color" content="#05080d">
+<meta name="color-scheme" content="dark">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Questions">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="../apple-touch-icon.png">
+<link rel="icon" href="../icon-192.png">
+<style>
+  /* THE STAFF QUESTIONS PAGE (R190): a man's questions about his own messages; the answer goes in the WhatsApp group. Dark always. No data in this file. */
+  :root {
+    color-scheme: dark;
+    --page: #05080d; --card: #141c2a; --card-late: #33270c; --edge: rgba(255, 255, 255, .13); --edge-late: #fbbf24;
+    --ink: #f4f7fb; --body: #b4bfd0; --primary: #22c55e; --primary-on: #04210f; --ok: #86efac; --warn: #fbbf24; --danger: #fca5a5;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--page); color: var(--ink); font: 17px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 560px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 18px) 16px calc(env(safe-area-inset-bottom) + 32px); }
+  h1 { font-size: 26px; margin: 0; text-wrap: balance; }
+  h2 { font-size: 15px; font-weight: 600; color: var(--body); margin: 26px 0 10px; }
+  p { margin: 0 0 12px; color: var(--body); }
+  .sub { margin: 4px 0 18px; }
+  .q { background: var(--card); border: 1px solid var(--edge); border-radius: 14px; padding: 14px; margin-bottom: 10px; }
+  .q.late { background: var(--card-late); border-color: var(--edge-late); }
+  .q .meta { font-size: 14px; color: var(--body); margin-bottom: 6px; }
+  .q .text { color: var(--ink); }
+  .q .state { font-size: 14px; margin-top: 8px; color: var(--body); }
+  .q.late .state { color: var(--warn); font-weight: 600; }
+  .q.done .text { color: var(--body); }
+  .q.done .state { color: var(--ok); }
+  button, .btn { display: block; width: 100%; min-height: 48px; padding: 12px 14px; border: 0; border-radius: 12px; background: var(--primary); color: var(--primary-on); font: 600 17px/1.3 inherit; font-family: inherit; text-align: center; text-decoration: none; cursor: pointer; }
+  button.quiet, .btn.quiet { background: transparent; color: var(--ink); border: 1px solid var(--edge); }
+  .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tabs button { flex: 1; min-height: 42px; font-size: 15px; padding: 8px; }
+  .tabs button:not(.on) { background: transparent; color: var(--ink); border: 1px solid var(--edge); }
+  input { width: 100%; min-height: 52px; padding: 12px; margin: 0 0 12px; border-radius: 12px; border: 1px solid var(--edge); background: var(--card); color: var(--ink); font: 600 20px/1.2 ui-monospace, Menlo, monospace; letter-spacing: 2px; text-transform: uppercase; text-align: center; }
+  input:focus-visible, button:focus-visible, .btn:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+  .err { color: var(--danger); min-height: 22px; font-size: 15px; }
+  .code { font: 600 22px/1.2 ui-monospace, Menlo, monospace; letter-spacing: 2px; color: var(--ink); background: var(--card); border: 1px solid var(--edge); border-radius: 12px; padding: 14px; text-align: center; margin: 0 0 16px; }
+  ol { color: var(--body); padding-left: 22px; margin: 0 0 16px; }
+  li { margin-bottom: 8px; }
+  .empty { padding: 30px 14px; text-align: center; color: var(--body); }
+  .note { background: var(--card); border: 1px solid var(--edge); border-radius: 12px; padding: 12px 14px; font-size: 15px; color: var(--body); margin-bottom: 14px; }
+  .gap { margin-top: 10px; }
+</style>
+</head>
+<body>
+<main id="app" aria-live="polite"></main>
+<script>
+const FN = 'https://fepsvkuutodaihotucuh.supabase.co/functions/v1/staff-app'
+const VAPID = 'BP2UhZjRq3DyhhjuaqQ9QW9Di2G2Gs7xT-MkG0IYWqWBy0HSXNQ4L3y0P7h2a3aCOub68ILfEFmAQ873QPGNY2k'
+const $ = document.getElementById('app')
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]))
+const store = { get: k => { try { return localStorage.getItem(k) } catch { return null } }, set: (k, v) => { try { localStorage.setItem(k, v) } catch {} }, del: k => { try { localStorage.removeItem(k) } catch {} } }
+const params = new URLSearchParams(location.search)
+const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true
+const iphone = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+const demo = params.get('demo')
+let tab = 'open', data = null
+
+const DEMO = { // invented, for looking at the page with ?demo=man or ?demo=owner; it never reaches the server
+  man: { role: 'man', name: 'Test Operator', questions: [
+    { id: 1, machine_code: 'A1', day_date: '2026-01-05', question: 'Your ending register has no COUNT. Send the COUNT of everything on the machine now, under the heading COUNT.', created_at: new Date(Date.now() - 2.4e6).toISOString(), opened_at: null, closed_at: null },
+    { id: 2, machine_code: 'A1', day_date: '2026-01-04', question: 'Please send that truck line again with the right times.', created_at: new Date(Date.now() - 9e7).toISOString(), closed_at: new Date(Date.now() - 8.9e7).toISOString(), closed_how: 'corrected' }] },
+  owner: { role: 'owner', name: '', settings: { send_to_men: false, ask_after_min: 45, notify_after_min: 180 }, questions: [
+    { id: 1, who: 'Test Operator', machine_code: 'A1', day_date: '2026-01-05', question: 'Your ending register has no COUNT. Send the COUNT of everything on the machine now, under the heading COUNT.', created_at: new Date(Date.now() - 1.2e7).toISOString(), closed_at: null, opened_at: null },
+    { id: 2, who: 'Second Operator', machine_code: 'A2', day_date: '2026-01-05', question: 'Please check the running total.', created_at: new Date(Date.now() - 9e5).toISOString(), closed_at: null, opened_at: new Date().toISOString() },
+    { id: 3, who: 'Second Operator', machine_code: 'A2', day_date: '2026-01-04', question: 'Please send that truck line again with the right times.', created_at: new Date(Date.now() - 9e7).toISOString(), closed_at: new Date(Date.now() - 8.9e7).toISOString(), closed_how: 'corrected' }] },
+}
+
+async function api(task, body) {
+  const r = await fetch(`${FN}?task=${task}`, { method: body ? 'POST' : 'GET', headers: { 'content-type': 'application/json', 'x-device-token': store.get('token') || '' }, body: body ? JSON.stringify(body) : undefined })
+  const j = await r.json().catch(() => ({}))
+  if (!r.ok) { const e = new Error(j.error || 'Please check your connection and try again.'); e.status = r.status; throw e }
+  return j
+}
+const day = d => d ? new Date(d + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) : ''
+const when = iso => new Date(iso).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+const age = iso => { const m = Math.round((Date.now() - new Date(iso)) / 60000); return m < 60 ? `${m} min` : m < 2880 ? `${Math.round(m / 60)} h` : `${Math.round(m / 1440)} days` }
+
+function showSignin(msg = '') {
+  const code = params.get('code') || store.get('code') || ''
+  // on an iPhone a page in Safari and the same page on the home screen keep separate sign-ins, and only the home screen can notify
+  if (iphone && !standalone && !demo) {
+    if (code) store.set('code', code)
+    $.innerHTML = `<h1>Questions</h1><p class="sub">Add this to your home screen first.</p>
+      <ol><li>Tap the Share button in Safari.</li><li>Tap <b>Add to Home Screen</b>, then <b>Add</b>.</li><li>Open <b>Questions</b> from your home screen and type this code:</li></ol>
+      <div class="code">${esc(code || 'The code in your message')}</div>`
+    return
+  }
+  $.innerHTML = `<h1>Questions</h1><p class="sub">Type the code from your message.</p>
+    <form id="f"><label for="c" class="note" style="display:block">Your code</label><input id="c" value="${esc(code)}" autocomplete="off" autocapitalize="characters" spellcheck="false"><div class="err" role="alert">${esc(msg)}</div><button>Sign in</button></form>`
+  document.getElementById('f').onsubmit = async e => {
+    e.preventDefault()
+    try {
+      const j = await api('signin', { code: document.getElementById('c').value })
+      store.set('token', j.token); store.del('code'); history.replaceState(null, '', location.pathname); load()
+    } catch (x) { showSignin(x.message) }
+  }
+  if (code && params.get('code') && !store.get('tried')) { store.set('tried', '1'); document.getElementById('f').requestSubmit() }
+}
+
+function pushState() {
+  if (demo || !('serviceWorker' in navigator) || !('PushManager' in window)) return 'none'
+  return Notification.permission
+}
+async function turnOnPush() {
+  const reg = await navigator.serviceWorker.register('sw.js')
+  const perm = await Notification.requestPermission()
+  if (perm !== 'granted') { render(); return }
+  await navigator.serviceWorker.ready
+  const key = Uint8Array.from(atob(VAPID.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(VAPID.length / 4) * 4, '=')), c => c.charCodeAt(0))
+  const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key })
+  await api('subscribe', { subscription: sub.toJSON() })
+  store.set('pushed', '1'); render()
+}
+
+function card(q, owner, notifyAfter) {
+  const closed = !!q.closed_at
+  const late = !closed && owner && (Date.now() - new Date(q.created_at)) > notifyAfter * 60000
+  const state = closed
+    ? (q.closed_how === 'corrected' ? `✓ Corrected at ${when(q.closed_at)}` : `✓ Closed at ${when(q.closed_at)}`)
+    : owner ? `Not corrected · ${age(q.created_at)}${q.opened_at ? ` · opened ${when(q.opened_at)}` : ' · not opened'}`
+    : 'Send your correction in your machine\'s WhatsApp group.'
+  return `<article class="q${closed ? ' done' : ''}${late ? ' late' : ''}" data-id="${q.id}">
+    <div class="meta">${owner ? `${esc(q.who || 'Sender not known')} · ` : ''}${esc(q.machine_code || '')} · ${esc(day(q.day_date))}</div>
+    <div class="text">${esc(q.question)}</div><div class="state">${esc(state)}</div></article>`
+}
+
+function render() {
+  const owner = data.role === 'owner'
+  const qs = data.questions, open = qs.filter(q => !q.closed_at), done = qs.filter(q => q.closed_at)
+  const after = data.settings?.notify_after_min ?? 180
+  const ps = pushState()
+  const ask = (ps === 'default' || (ps === 'granted' && !store.get('pushed'))) ? `<button id="push" class="gap">Turn on notifications</button>` : ps === 'denied' ? `<div class="note">Notifications are off for this app. Turn them on in your phone's settings.</div>` : ''
+  if (owner) {
+    const late = open.filter(q => (Date.now() - new Date(q.created_at)) > after * 60000)
+    const show = tab === 'open' ? [...open].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)) : qs
+    $.innerHTML = `<h1>Questions</h1><p class="sub">${open.length} not corrected${late.length ? `, ${late.length} past ${after} min` : ''}</p>
+      ${data.settings?.send_to_men ? '' : '<div class="note">Trial run: the men are not being sent these yet.</div>'}${ask}
+      <div class="tabs gap"><button data-t="open" class="${tab === 'open' ? 'on' : ''}">Not corrected</button><button data-t="all" class="${tab === 'all' ? 'on' : ''}">Everything</button></div>
+      ${show.map(q => card(q, true, after)).join('') || '<div class="empty">Nothing here.</div>'}`
+    $.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; render() })
+  } else {
+    $.innerHTML = `<h1>${open.length ? `${open.length} question${open.length === 1 ? '' : 's'} for you` : 'No questions'}</h1>
+      <p class="sub">${esc(data.name)}</p>${ask}
+      ${open.map(q => card(q, false)).join('') || '<div class="empty">Nothing needs correcting.</div>'}
+      ${open.length ? '<a class="btn gap" href="whatsapp://">Open WhatsApp</a>' : ''}
+      ${done.length ? `<h2>Done</h2>${done.slice(0, 10).map(q => card(q, false)).join('')}` : ''}`
+    if (!demo) open.filter(q => !q.opened_at).forEach(q => { q.opened_at = new Date().toISOString(); api('opened', { id: q.id }).catch(() => {}) })
+  }
+  document.getElementById('push')?.addEventListener('click', () => turnOnPush().catch(e => alert(e.message)))
+}
+
+async function load() {
+  if (demo) { data = DEMO[demo] || DEMO.man; render(); return }
+  if (!store.get('token')) return showSignin()
+  try { data = await api('mine'); render() }
+  catch (e) {
+    if (e.status === 401) { store.del('token'); showSignin() }
+    else if (data) render()
+    else $.innerHTML = `<h1>Questions</h1><p class="sub">${esc(e.message)}</p><button id="r">Try again</button>`, document.getElementById('r').onclick = load
+  }
+}
+if ('serviceWorker' in navigator && !demo) { navigator.serviceWorker.register('sw.js').catch(() => {}); navigator.serviceWorker.addEventListener('message', load) }
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load() })
+load()
+</script>
+</body>
+</html>
