@@ -977,7 +977,7 @@ const empty = v => v == null || v === ''
 // (the EXPECTED m³ of a job is the quote — "just an overestimation of what quantity was to be pumped, not m3 we missed because we lacked
 // capacity. don't mix that up", the owner, 5 Oct 2026: it is never offered as a missed job's m³)
 function gapsOf(j) { let n = (isWork(j) ? JOB_REQ_WORK : JOB_REQ).filter(f => empty(j[f])).length; for (const d of j.days) { if (empty(d.reporting_time)) n++; if (cal && d.day_date < cal.today && empty(d.engine_hours_end) && d.kind !== 'setting') n++ } return n }
-const liveJobs = () => (cal ? cal.jobs.filter(j => j.status !== 'cancelled') : [])
+const liveJobs = () => (cal ? cal.jobs.filter(j => j.status !== 'cancelled' && j.status !== 'postponed') : [])   // W121: postponed, no date — off the calendar
 // the badge on the tab: the shells of today and tomorrow that still have gaps
 function jobsToFill() { if (!cal) return 0; const soon = isoDay(new Date(atNoon(cal.today).getTime() + 86400e3)); return liveJobs().filter(j => j.status !== 'done' && j.days.some(d => d.day_date >= cal.today && d.day_date <= soon) && gapsOf(j)).length }
 // THE MONTH'S BARS (the owner, 5 Oct 2026: "day zeros on the bot app's calendar should be noticeable" · "as should repair days" · "multi-job
@@ -1012,7 +1012,7 @@ function weekHtml(week) {
   const bars = groups.map(g => g.segs.map((s, i) => {
     const e = s.e, first = i === 0, last = i === g.segs.length - 1
     const kindWords = { d0: 'Day 0', repair: 'repair', service: 'service', task: 'task' }[s.look]
-    return `<span class="bar ${s.look === 'job' ? '' : s.look} ${first && !g.before ? '' : 'joinl'} ${last && !g.after ? '' : 'joinr'} ${week[s.col].slice(0, 7) !== calMonth ? 'out' : ''}" style="grid-column:${s.col + 1} / span ${s.span};grid-row:${g.lane + 2}">(${esc(e.machine || ' ')}) ${esc(e.site || '?')}${kindWords ? `<span class="sr-only"> — ${kindWords}</span>` : ''}</span>`
+    return `<span class="bar ${s.look === 'job' ? '' : s.look} ${first && !g.before ? '' : 'joinl'} ${last && !g.after ? '' : 'joinr'} ${week[s.col].slice(0, 7) !== calMonth ? 'out' : ''}" style="grid-column:${s.col + 1} / span ${s.span};grid-row:${g.lane + 2}">(${esc(e.machine || '??')}) ${esc(e.site || '?')}${kindWords ? `<span class="sr-only"> — ${kindWords}</span>` : ''}</span>`
   }).join('')).join('')
   return `<div class="week" style="grid-template-rows:42px repeat(${rows}, 13px) minmax(4px, 1fr)">${cells}${bars}</div>`
 }
