@@ -48,6 +48,17 @@
   .empty { padding: 30px 14px; text-align: center; color: var(--body); }
   .note { background: var(--card); border: 1px solid var(--edge); border-radius: 12px; padding: 12px 14px; font-size: 15px; color: var(--body); margin-bottom: 14px; }
   .gap { margin-top: 10px; }
+  /* his replies (W129): how a kind of question should be put to the men */
+  .replies { margin-top: 10px; border-top: 1px solid var(--edge); padding-top: 10px; }
+  .reply { font-size: 15px; color: var(--ink); margin-bottom: 8px; }
+  .reply .by { color: var(--body); font-size: 13px; display: block; }
+  .reply .ans { color: var(--ok); font-size: 14px; margin-top: 3px; }
+  .reply .wait { color: var(--warn); font-size: 13px; margin-top: 3px; }
+  textarea { width: 100%; min-height: 96px; padding: 12px; margin: 8px 0; border-radius: 12px; border: 1px solid var(--edge); background: var(--page); color: var(--ink); font: 16px/1.4 inherit; font-family: inherit; resize: vertical; }
+  textarea:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+  .row { display: flex; gap: 8px; }
+  .row button { min-height: 44px; font-size: 15px; }
+  .q button.small { min-height: 40px; font-size: 15px; margin-top: 10px; padding: 8px 12px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
 </style>
 </head>
@@ -70,7 +81,8 @@ const DEMO = { // invented, for looking at the page with ?demo=man or ?demo=owne
     { id: 1, machine_code: 'A1', day_date: '2026-01-05', question: 'Your ending register has no COUNT. Send the COUNT of everything on the machine now, under the heading COUNT.', created_at: new Date(Date.now() - 2.4e6).toISOString(), opened_at: null, closed_at: null },
     { id: 2, machine_code: 'A1', day_date: '2026-01-04', question: 'Please send that truck line again with the right times.', created_at: new Date(Date.now() - 9e7).toISOString(), closed_at: new Date(Date.now() - 8.9e7).toISOString(), closed_how: 'corrected' }] },
   owner: { role: 'owner', name: '', settings: { send_to_men: false, ask_after_min: 45, notify_after_min: 180 }, questions: [
-    { id: 1, who: 'Test Operator', machine_code: 'A1', day_date: '2026-01-05', question: 'Your ending register has no COUNT. Send the COUNT of everything on the machine now, under the heading COUNT.', created_at: new Date(Date.now() - 1.2e7).toISOString(), closed_at: null, opened_at: null },
+    { id: 1, who: 'Test Operator', machine_code: 'A1', day_date: '2026-01-05', question: 'Your ending register has no COUNT. Send the COUNT of everything on the machine now, under the heading COUNT.', created_at: new Date(Date.now() - 1.2e7).toISOString(), closed_at: null, opened_at: null,
+      notes: [{ id: 1, here: true, note: 'Tell them which register: the ending register of today.', status: 'applied', reply: 'Changed: the question now names the ending register and the day.', created_at: new Date(Date.now() - 6e6).toISOString() }] },
     { id: 2, who: 'Second Operator', machine_code: 'A2', day_date: '2026-01-05', question: 'Please check the running total.', created_at: new Date(Date.now() - 9e5).toISOString(), closed_at: null, opened_at: new Date().toISOString() },
     { id: 3, who: 'Second Operator', machine_code: 'A2', day_date: '2026-01-04', question: 'Please send that truck line again with the right times.', created_at: new Date(Date.now() - 9e7).toISOString(), closed_at: new Date(Date.now() - 8.9e7).toISOString(), closed_how: 'corrected' }] },
 }
@@ -122,6 +134,18 @@ async function turnOnPush() {
   store.set('pushed', '1'); render()
 }
 
+let replying = null, drafts = {}   // the question he is writing a reply on; what he has typed, kept when the page refreshes
+function replies(q) {
+  const ns = q.notes || []
+  const list = ns.map(n => `<div class="reply"><span class="by">You${n.here ? '' : ', on another question of this kind'} · ${esc(day(String(n.created_at).slice(0, 10)))}</span>${esc(n.note)}
+    ${n.reply ? `<div class="ans">${esc(n.reply)}</div>` : '<div class="wait">Waiting for Code to change how this is put</div>'}</div>`).join('')
+  const box = replying === q.id
+    ? `<label for="r${q.id}" class="sr">Your reply</label><textarea id="r${q.id}" placeholder="How should this be put to the men?">${esc(drafts[q.id] || '')}</textarea><div class="err" role="alert" id="e${q.id}"></div>
+       <div class="row"><button data-send="${q.id}">Send reply</button><button class="quiet" data-cancel="${q.id}">Cancel</button></div>`
+    : `<button class="quiet small" data-reply="${q.id}">Reply</button>`
+  return `${list ? `<div class="replies">${list}</div>` : ''}${box}`
+}
+
 function card(q, owner, notifyAfter) {
   const closed = !!q.closed_at
   const late = !closed && owner && (Date.now() - new Date(q.created_at)) > notifyAfter * 60000
@@ -131,7 +155,7 @@ function card(q, owner, notifyAfter) {
     : 'Send your correction in your machine\'s WhatsApp group.'
   return `<article class="q${closed ? ' done' : ''}${late ? ' late' : ''}" data-id="${q.id}">
     <div class="meta">${owner ? `${esc(q.who || 'Sender not known')} · ` : ''}${esc(q.machine_code || '')} · ${esc(day(q.day_date))}</div>
-    <div class="text">${esc(q.question)}</div><div class="state">${esc(state)}</div></article>`
+    <div class="text">${esc(q.question)}</div><div class="state">${esc(state)}</div>${owner ? replies(q) : ''}</article>`
 }
 
 function render() {
@@ -148,6 +172,20 @@ function render() {
       <div class="tabs gap"><button data-t="open" class="${tab === 'open' ? 'on' : ''}">Not corrected</button><button data-t="all" class="${tab === 'all' ? 'on' : ''}">Everything</button></div>
       ${show.map(q => card(q, true, after)).join('') || '<div class="empty">Nothing here.</div>'}`
     $.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { tab = b.dataset.t; render() })
+    $.querySelectorAll('[data-reply]').forEach(b => b.onclick = () => { replying = Number(b.dataset.reply); render(); document.getElementById(`r${replying}`)?.focus() })
+    $.querySelectorAll('textarea[id^="r"]').forEach(t => t.oninput = () => { drafts[t.id.slice(1)] = t.value })
+    $.querySelectorAll('[data-cancel]').forEach(b => b.onclick = () => { replying = null; render() })
+    $.querySelectorAll('[data-send]').forEach(b => b.onclick = async () => {
+      const id = Number(b.dataset.send), text = document.getElementById(`r${id}`).value.trim(), err = document.getElementById(`e${id}`)
+      if (!text) { err.textContent = 'Write your reply first.'; return }
+      b.disabled = true
+      try {
+        const j = demo ? { note: { id: Date.now(), note: text, status: 'open', reply: null, created_at: new Date().toISOString() } } : await api('reply', { id, text })
+        const q = data.questions.find(x => x.id === id)
+        for (const x of data.questions) if (x === q || (q.code && x.code === q.code)) x.notes = [...(x.notes || []), { ...j.note, here: x === q }]
+        replying = null; delete drafts[id]; render()
+      } catch (x) { err.textContent = x.message; b.disabled = false }
+    })
   } else {
     $.innerHTML = `<h1>${open.length ? `${open.length} question${open.length === 1 ? '' : 's'} for you` : 'No questions'}</h1>
       <p class="sub">${esc(data.name)}</p>${ask}
