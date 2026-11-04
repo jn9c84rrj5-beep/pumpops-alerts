@@ -272,6 +272,13 @@
   .jobrow { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; align-items: center; width: 100%; text-align: left; border: 1px solid var(--edge); }
   .jobrow .code { --mc: #94a3b8; font-size: 17px; min-width: 46px; text-align: center; padding: 4px 6px; border-radius: 10px; background: color-mix(in srgb, var(--mc) 24%, transparent); color: color-mix(in srgb, var(--mc) 45%, #fff); }
   .jobrow .sub { color: var(--body); font-size: 13.5px; }
+  /* a repair, service or task card (the owner, 4 Nov 2026: "make non-job cards look different" · "do the same on the live page"): a DASHED
+     border and its letter and word, in the calendar's colours (repair orange, service yellow, task white) — the twin of /live's WORK_LOOK */
+  .jobrow.work-repair { border-style: dashed; border-color: rgba(255,159,10,.7); }
+  .jobrow.work-service { border-style: dashed; border-color: rgba(255,214,10,.7); }
+  .jobrow.work-task { border-style: dashed; border-color: rgba(255,255,255,.6); }
+  .wk { display: inline-block; margin-right: 8px; padding: 0 6px; border-radius: 5px; font-size: 11px; font-weight: 700; color: #000; vertical-align: 1px; }
+  .wk-repair { background: #ff9f0a; } .wk-service { background: #ffd60a; } .wk-task { background: #fff; }
   .titleline { font: 600 14px/1.45 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink); overflow-wrap: anywhere; padding: 10px 12px; border-radius: 12px; background: var(--track); margin: 8px 0 4px; }
   .titleline .gap { color: var(--warn); }
   .secth { margin: 18px 0 0; padding-bottom: 6px; font-size: 13px; font-weight: 600; color: var(--body); display: flex; justify-content: space-between; align-items: baseline; gap: 10px; border-bottom: 1px solid var(--edge); }
@@ -983,6 +990,11 @@ function jobsToFill() { if (!cal) return 0; const soon = isoDay(new Date(atNoon(
 // THE MONTH'S BARS (the owner, 5 Oct 2026: "day zeros on the bot app's calendar should be noticeable" · "as should repair days" · "multi-job
 // days should be one bar that spans the days of the job"). A job is ONE bar across the days it runs, a week at a time; its Day 0 (the
 // setting day) is a hatched stretch of that bar marked D0; a repair or service day is a dashed bar marked REP / SVC.
+// a card that is not a pumping job, from its number (#1009R1 a repair, #1192S1 a service, #1254T1 a task; 'b' is a second pump, a job)
+const kindOfCard = c => ({ R: 'repair', S: 'service', T: 'task' })[(/\d([RST])\d+$/.exec(cardNo(c)) || [])[1]] || null
+const WK = { repair: ['R', 'Repair'], service: ['S', 'Service'], task: ['T', 'Task'] }
+const wkCls = k => (k && WK[k] ? ` work-${k}` : '')
+const wkChip = k => (k && WK[k] ? `<span class="wk wk-${k}">${WK[k][0]} · ${WK[k][1]}</span>` : '')
 const lookOf = e => { const k = e.plan ? (isWork(e.j) ? e.j.card_kind : e.d.kind) : (/^day\s*0/i.test(e.l.day_label || '') ? 'setting' : e.l.kind); return k === 'setting' ? 'd0' : k === 'repair' || k === 'service' || k === 'task' ? k : 'job' }
 const runKey = e => (e.plan ? 'p' + e.j.id : 'c' + e.l.card + '|' + (e.machine || ''))
 function weekBars(week) {
@@ -1045,9 +1057,10 @@ function renderJobs() {
   const weeks = []; for (let i = 0; i < shown.length; i += 7) weeks.push(shown.slice(i, i + 7))
   const sel = calSel || cal.today, es = entriesOf(sel)
   const row = e => {
-    if (!e.plan) return `<section class="item jobrow"><span class="code" style="--mc:${MC[e.machine] || '#94a3b8'}">${esc(e.machine || '?')}</span><div><div class="what">${esc(e.site || '?')}${e.area ? ` · ${esc(e.area)}` : ''}</div><div class="sub">#${esc(e.l.card)} · ${esc(String(e.l.day_label || '').replace(/:$/, ''))}${e.l.m3 ? ` · ${Number(e.l.m3)} m³` : ''}</div></div><span class="chip done">on its card</span></section>`
+    const lk0 = lookOf(e), wk = e.plan ? (isWork(e.j) ? e.j.card_kind : null) : (WK[lk0] ? lk0 : kindOfCard(e.l.card))
+    if (!e.plan) return `<section class="item jobrow${wkCls(wk)}"><span class="code" style="--mc:${MC[e.machine] || '#94a3b8'}">${esc(e.machine || '?')}</span><div><div class="what">${wkChip(wk)}${esc(e.site || '?')}${e.area ? ` · ${esc(e.area)}` : ''}</div><div class="sub">#${esc(e.l.card)} · ${esc(String(e.l.day_label || '').replace(/:$/, ''))}${e.l.m3 ? ` · ${Number(e.l.m3)} m³` : ''}</div></div><span class="chip done">on its card</span></section>`
     const g = gapsOf(e.j), d = e.d
-    return `<button class="item jobrow" data-job="${e.j.id}"><span class="code" style="--mc:${MC[e.machine] || '#94a3b8'}">${esc(e.machine || '—')}</span><div><div class="what">${esc(e.site)}${e.area ? ` · ${esc(e.area)}` : ''}</div><div class="sub">${[e.j.job_number ? '#' + cardNo(e.j.job_number) : 'no number yet', dayTitle(d), d.shift === 'night' ? 'night' : null, d.reporting_time ? String(d.reporting_time).slice(0, 5) : null, e.j.client ? '[' + e.j.client + ']' : null].filter(Boolean).map(esc).join(' · ')}</div></div>${e.j.status === 'done' ? '<span class="chip done">✓ finished</span>' : g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : '<span class="chip done">✓ filled</span>'}</button>`
+    return `<button class="item jobrow${wkCls(wk)}" data-job="${e.j.id}"><span class="code" style="--mc:${MC[e.machine] || '#94a3b8'}">${esc(e.machine || '—')}</span><div><div class="what">${wkChip(wk)}${esc(e.site)}${e.area ? ` · ${esc(e.area)}` : ''}</div><div class="sub">${[e.j.job_number ? '#' + cardNo(e.j.job_number) : 'no number yet', dayTitle(d), d.shift === 'night' ? 'night' : null, d.reporting_time ? String(d.reporting_time).slice(0, 5) : null, e.j.client ? '[' + e.j.client + ']' : null].filter(Boolean).map(esc).join(' · ')}</div></div>${e.j.status === 'done' ? '<span class="chip done">✓ finished</span>' : g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : '<span class="chip done">✓ filled</span>'}</button>`
   }
   const y = scroller.scrollTop
   main.innerHTML = `<section class="cal"><div class="dow">${dow.map(x => `<span>${x}</span>`).join('')}</div><div class="calgrid">${weeks.map(weekHtml).join('')}</div></section>
@@ -1075,8 +1088,8 @@ function plannedListHtml() {
   js.sort((a, b) => (a.status === b.status ? 0 : a.status === 'started' ? -1 : 1) || (firstOf(a) < firstOf(b) ? -1 : firstOf(a) > firstOf(b) ? 1 : 0))
   const row = j => {
     const g = gapsOf(j), f = firstOf(j), l = lastOf(j)
-    const when = f === '9999' ? 'no day yet' : f === l ? longDay(f) : `${longDay(f)} – ${longDay(l)}`
-    return `<button class="item jobrow" data-job="${j.id}"><span class="code" style="--mc:${MC[j.machine_code] || '#94a3b8'}">${esc(j.machine_code || '—')}</span><div><div class="what">${esc(j.site_name)}${j.area_name ? ` · ${esc(j.area_name)}` : ''}</div><div class="sub">${[j.job_number ? '#' + cardNo(j.job_number) : 'no number yet', isWork(j) ? (j.card_kind === 'service' ? 'a service' : 'a repair') : null, when, `${j.days.length} day${j.days.length === 1 ? '' : 's'}`].filter(Boolean).map(esc).join(' · ')}</div></div>${j.status === 'started' ? '<span class="chip info">under way</span>' : '<span class="chip">planned</span>'}${g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : ''}</button>`
+    const when = f === '9999' ? 'no day yet' : f === l ? longDay(f) : `${longDay(f)} – ${longDay(l)}`, wk = isWork(j) ? j.card_kind : kindOfCard(j.job_number)
+    return `<button class="item jobrow${wkCls(wk)}" data-job="${j.id}"><span class="code" style="--mc:${MC[j.machine_code] || '#94a3b8'}">${esc(j.machine_code || '—')}</span><div><div class="what">${wkChip(wk)}${esc(j.site_name)}${j.area_name ? ` · ${esc(j.area_name)}` : ''}</div><div class="sub">${[j.job_number ? '#' + cardNo(j.job_number) : 'no number yet', isWork(j) ? (j.card_kind === 'service' ? 'a service' : 'a repair') : null, when, `${j.days.length} day${j.days.length === 1 ? '' : 's'}`].filter(Boolean).map(esc).join(' · ')}</div></div>${j.status === 'started' ? '<span class="chip info">under way</span>' : '<span class="chip">planned</span>'}${g ? `<span class="chip need"><span class="dot"></span>${g} to fill</span>` : ''}</button>`
   }
   return `<div class="group"><span>All planned jobs</span><span>${js.length} open</span></div>${js.map(row).join('')}`
 }
@@ -1085,10 +1098,11 @@ function ongoingHtml() {
   if (!og.length) return ''
   const row = o => {
     const sub = `#${esc(cardNo(o.card))} · since ${longDay(o.first_day)} · ${o.days} day${o.days === 1 ? '' : 's'} on the card`
-    const lead = `<span class="code" style="--mc:${MC[o.machine] || '#94a3b8'}">${esc(o.machine || '?')}</span><div><div class="what">${esc(o.site || '?')}${o.area ? ` · ${esc(o.area)}` : ''}</div><div class="sub">${sub}</div>`
-    if (o.shell) return `<button class="item jobrow" data-job="${o.shell}">${lead}</div><span class="chip info">tap to change</span></button>`
+    const wk = kindOfCard(o.card)
+    const lead = `<span class="code" style="--mc:${MC[o.machine] || '#94a3b8'}">${esc(o.machine || '?')}</span><div><div class="what">${wkChip(wk)}${esc(o.site || '?')}${o.area ? ` · ${esc(o.area)}` : ''}</div><div class="sub">${sub}</div>`
+    if (o.shell) return `<button class="item jobrow${wkCls(wk)}" data-job="${o.shell}">${lead}</div><span class="chip info">tap to change</span></button>`
     const lk = o.looks_like ? cal.jobs.find(x => x.id === o.looks_like) : null
-    return `<section class="item jobrow">${lead}<div class="acts" style="margin-top:6px">${lk ? `<button class="act" data-ongoingjoin="${o.looks_like}" data-card="${esc(o.card)}">It is the job I planned at ${esc(lk.site_name)} — open it</button>` : ''}<button class="act ${lk ? 'quiet' : ''}" data-ongoingmake="${o.job_id}">${lk ? 'No — open the card on its own' : 'Open it to change'}</button></div></div></section>`
+    return `<section class="item jobrow${wkCls(wk)}">${lead}<div class="acts" style="margin-top:6px">${lk ? `<button class="act" data-ongoingjoin="${o.looks_like}" data-card="${esc(o.card)}">It is the job I planned at ${esc(lk.site_name)} — open it</button>` : ''}<button class="act ${lk ? 'quiet' : ''}" data-ongoingmake="${o.job_id}">${lk ? 'No — open the card on its own' : 'Open it to change'}</button></div></div></section>`
   }
   return `<div class="group"><span>Ongoing cards</span><span>${og.length} still running</span></div>${og.map(row).join('')}`
 }
