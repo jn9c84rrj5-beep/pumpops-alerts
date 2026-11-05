@@ -293,7 +293,7 @@ function thingHtml(t) {
 }
 function machHead(m) {
   const b = m.board
-  return `<h2 class="mach" style="--mcol:${MC[m.code] || '#94a3b8'}"><span class="mc">${esc(m.code)}</span><span class="where">${b && b.site ? esc(b.site + (b.area ? ', ' + b.area : '')) : (m.job ? esc(m.job.site) : 'no register yet')}</span></h2>`
+  return `<h2 class="mach" style="--mcol:${MC[m.code] || '#94a3b8'}"><span class="mc">${esc(m.code)}</span><span class="where">${b && (b.said || b.site) ? esc((b.said || b.site) + (b.area ? ', ' + b.area : '')) : (m.job ? esc(m.job.site) : 'no register yet')}</span></h2>`
 }
 function unknownHtml() {
   let h = ''
@@ -312,7 +312,8 @@ function knownHtml() {
   for (const m of mdata.machines) {
     const b = m.board
     if (!b && !m.messages.length && !m.known.length && !m.words.length) continue
-    const reg = b && b.site, plan = m.job && m.job.site, off = reg && plan && !samePlace(reg, plan)
+    // the register's own PROJECT line (board.said); the board's site is the plan's once a job is planned
+    const reg = b && (b.said || (!m.job && b.site)), plan = m.job && m.job.site, off = reg && plan && !samePlace(reg, plan)
     h += machHead(m)
     h += `<p class="filedto">${m.job ? `Filed to <b>#${esc(m.job.number || '?')} ${esc(m.job.site)}</b>` : '<span class="off">No planned job this day</span>'}${reg ? ` · register: <b class="${off ? 'off' : ''}">${esc(reg)}</b>` : ''}</p>`
     if (b) h += `<p class="filedto">${esc(b.who || '')}${b.trucks != null ? ` · ${b.trucks} truck${b.trucks === 1 ? '' : 's'}` : ''}${b.m3 ? ` · ${b.m3} m³` : ''}${b.engine && b.engine.start != null ? ` · engine ${b.engine.start}${b.engine.end != null ? ' → ' + b.engine.end : ''}` : ''}${b.sr ? ' · SR ✓' : ''}${b.er ? ' · ER ✓' : ''}</p>`
@@ -374,9 +375,9 @@ async function loadManage() {
 }
 const DEMO_M = { day: '2026-01-05', today: '2026-01-05', for_code: 1, usual: { NO_PLANNED_JOB: [{ code: 'NO_PLANNED_JOB', how: 'tap', said: 'job', shown_as: 'Another day of #9001 Test Site', n: 4 }] },   // invented, ?demo=owner only
   machines: [
-    { code: 'A1', board: { who: 'Test Operator', site: 'Second Site', area: 'Testarea', trucks: 3, m3: 24, sr: true, er: false, engine: { start: 100.5, end: null } }, job: { number: '9001', site: 'Test Site', status: 'started' },
+    { code: 'A1', board: { who: 'Test Operator', site: 'Test Site', said: 'Second Site', area: 'Testarea', trucks: 3, m3: 24, sr: true, er: false, engine: { start: 100.5, end: null } }, job: { number: '9001', site: 'Test Site', status: 'started' },
       messages: [{ time: '06:02', what: 'starting register', who: 'Test Operator', place: 'Testarea - Test Site' }, { time: '09:40', what: 'trucks', who: 'Test Operator', place: 'Testarea - Test Site' }],
-      unknown: [{ key: 'place:A1', code: 'PLACE_DIFFERS', side: 'unknown', machine: 'A1', day: '2026-01-05', solved: false, buttons: null, head: 'A1 · the plan and the register differ', what: 'A1 is planned on #9001 Test Site for this day, but its register says Second Site, Testarea. The bot files the day to the plan. Which is right?', decisions: [] },
+      unknown: [{ key: '4:0', outbox_id: 4, item: 0, code: 'REGISTER_NOT_PLAN', side: 'unknown', machine: 'A1', day: '2026-01-05', solved: false, buttons: [{ label: 'The plan is right — stop reminding', answer: 'known' }], head: 'A1 · Test Operator · 06:02', what: 'A1 is planned on #9001 Test Site for Mon, 5 Jan, but its starting register says PROJECT: Second Site. The day is filed to your plan — if the machine moved, tell the bot where it is.', decisions: [] },
         { key: '1:0', outbox_id: 1, item: 0, code: 'STAFF_UNMATCHED', side: 'unknown', machine: 'A1', day: '2026-01-05', solved: false, head: 'A1 · Test Operator · 07:07', what: 'Somebody New — not on the staff list', buttons: [{ label: 'Ask him', answer: 'asked', share: 'Who is he?' }, { label: "He's right — fix the file", answer: 'file_wrong' }, { label: 'Known — stop reminding', answer: 'known' }],
           decisions: [{ id: 2, how: 'words', his_text: 'he is a new pipe fixer', state: 'for_code', bot_reply: "✓ Got it — not a cost or a machine assignment, so I've only kept it", checked: 'kept for Code', created_at: new Date().toISOString() }] }],
       known: [{ key: '2:0', outbox_id: 2, item: 0, code: 'VOLUME_DISCREPANCY', side: 'known', machine: 'A1', day: '2026-01-05', solved: false, asked: true, head: 'A1 · Test Operator · 10:15', what: 'Truck 3: 8 m³, but the running total moved by 9', buttons: [{ label: 'Ask him', answer: 'asked' }, { label: 'Known — stop reminding', answer: 'known' }], decisions: [] }], words: [] },
