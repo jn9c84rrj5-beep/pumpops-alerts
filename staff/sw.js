@@ -10,7 +10,9 @@ self.addEventListener('notificationclick', e => {
   e.notification.close()
   e.waitUntil((async () => {
     const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
-    if (all.length) { await all[0].focus(); all[0].postMessage({ refresh: true }); return }
-    await self.clients.openWindow('./')
+    // a Management push (id -1, W141) opens the Management tab
+    const manage = e.notification.data && e.notification.data.id === -1
+    if (all.length) { await all[0].focus(); all[0].postMessage({ refresh: true, view: manage ? 'manage' : null }); return }
+    await self.clients.openWindow(manage ? './?view=manage' : './')
   })())
 })
